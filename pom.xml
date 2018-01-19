@@ -22,7 +22,7 @@
 	<parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.609</version>
+		<version>3.2</version>
 		<relativePath />
 	</parent>
 
@@ -33,6 +33,11 @@
 	<name>Amazon EC2 Container Service plugin</name>
 	<description>Jenkins plugin to run dynamic slaves in a Amazon ECS/Docker environment</description>
 	<url>https://wiki.jenkins-ci.org/display/JENKINS/Amazon+EC2+Container+Service+Plugin</url>
+
+	<properties>
+		<jenkins.version>1.645</jenkins.version>
+		<java.level>8</java.level>
+	</properties>
 
 	<developers>
 		<developer>
@@ -74,15 +79,17 @@
 	</distributionManagement>
 
 	<dependencies>
+		<!-- https://mvnrepository.com/artifact/org.jenkins-ci.plugins/aws-java-sdk -->
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>aws-java-sdk</artifactId>
-			<version>1.11.37</version>
+			<version>1.11.248</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.jenkins-ci.plugins/aws-credentials -->
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>aws-credentials</artifactId>
-			<version>1.16</version>
+			<version>1.23</version>
 		</dependency>
 	</dependencies>
 
