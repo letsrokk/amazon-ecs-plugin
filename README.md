@@ -8,6 +8,8 @@ This jenkins plugin do use [Amazon EC2 Container Service](http://docs.aws.amazon
 
 Please find the documentation on the [Jenkins Wiki page Amazon EC2 Container Service Plugin](https://wiki.jenkins-ci.org/display/JENKINS/Amazon+EC2+Container+Service+Plugin).
 
-## Fork Info
+## Fork Notes
 
-This fork implements support for [Amazon ECS Fargate](https://aws.amazon.com/fargate/)
+- this fork implements support for [Amazon ECS Fargate](https://aws.amazon.com/fargate/)
+- merged changes for ECS EC2 Autoscaling by [cbamelis](https://github.com/cbamelis/amazon-ecs-plugin/tree/autoscaling)
+- merged changes from pull-request fixing [limit of slaves per template](https://github.com/jenkinsci/amazon-ecs-plugin/pull/48) 
