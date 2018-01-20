@@ -27,12 +27,7 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 
 import java.io.IOException;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -183,7 +178,12 @@ public class ECSStandartCloud extends ECSCloud {
         if (StringUtils.isNotBlank(jenkinsUrl)) {
             this.jenkinsUrl = jenkinsUrl;
         } else {
-            this.jenkinsUrl = JenkinsLocationConfiguration.get().getUrl();
+            Optional<JenkinsLocationConfiguration> jenkinsLocationConfiguration =
+                    Optional.ofNullable(JenkinsLocationConfiguration.get());
+            if(jenkinsLocationConfiguration.isPresent())
+                this.jenkinsUrl = jenkinsLocationConfiguration.get().getUrl();
+            else
+                this.jenkinsUrl = "http://localhost:8080/";
         }
 
         if (slaveTimoutInSeconds > 0) {
@@ -331,9 +331,9 @@ public class ECSStandartCloud extends ECSCloud {
                     label == null ? null : label.toString(), new JNLPLauncher());
                 slave.setClusterArn(cluster);
                 Jenkins.getInstance().addNode(slave);
-                while (Jenkins.getInstance().getNode(slave.getNodeName()) == null) {
-                    Thread.sleep(1000);
-                }
+//                while (Jenkins.getInstance().getNode(slave.getNodeName()) == null) {
+//                    Thread.sleep(1000);
+//                }
                 LOGGER.log(Level.INFO, "Created Slave: {0}", slave.getNodeName());
 
                 try {
@@ -396,7 +396,7 @@ public class ECSStandartCloud extends ECSCloud {
 
         @Override
         public String getDisplayName() {
-            return Messages.DisplayNameEC2();
+            return Messages.displayNameEC2();
         }
 
         public ListBoxModel doFillCredentialsIdItems() {

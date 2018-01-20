@@ -135,6 +135,12 @@ public class ECSFargateCloud extends ECSCloud {
 
     private final String subnetId;
 
+    private final String securityGroup;
+
+    private final String memory;
+
+    private final String cpu;
+
     private String regionName;
 
     /**
@@ -150,21 +156,41 @@ public class ECSFargateCloud extends ECSCloud {
     private ECSService ecsService;
 
     @DataBoundConstructor
-    public ECSFargateCloud(String name, List<ECSTaskTemplate> templates, @Nonnull String credentialsId,
-                           String cluster, String vpcId, String subnetId, String regionName, String jenkinsUrl, int slaveTimoutInSeconds) throws InterruptedException {
+    public ECSFargateCloud(
+            String name,
+            List<ECSTaskTemplate> templates,
+            @Nonnull String credentialsId,
+            String cluster,
+            String vpcId,
+            String subnetId,
+            String securityGroup,
+            String regionName,
+            String memory,
+            String cpu,
+            String jenkinsUrl,
+            int slaveTimoutInSeconds
+    ) {
         super(name);
         this.credentialsId = credentialsId;
         this.cluster = cluster;
         this.vpcId = vpcId;
         this.subnetId = subnetId;
+        this.securityGroup = securityGroup;
         this.templates = templates;
         this.regionName = regionName;
+        this.memory = memory;
+        this.cpu = cpu;
         LOGGER.log(Level.INFO, "Create ECS cloud {0} on ECS cluster {1} on the region {2}", new Object[] {name, cluster, regionName});
 
         if (StringUtils.isNotBlank(jenkinsUrl)) {
             this.jenkinsUrl = jenkinsUrl;
         } else {
-            this.jenkinsUrl = JenkinsLocationConfiguration.get().getUrl();
+            Optional<JenkinsLocationConfiguration> jenkinsLocationConfiguration =
+                    Optional.ofNullable(JenkinsLocationConfiguration.get());
+            if(jenkinsLocationConfiguration.isPresent())
+                this.jenkinsUrl = jenkinsLocationConfiguration.get().getUrl();
+            else
+                this.jenkinsUrl = "http://localhost:8080/";
         }
 
         if (slaveTimoutInSeconds > 0) {
@@ -205,8 +231,20 @@ public class ECSFargateCloud extends ECSCloud {
         return subnetId;
     }
 
+    public String getSecurityGroup() {
+        return securityGroup;
+    }
+
     public String getRegionName() {
         return regionName;
+    }
+
+    public String getMemory() {
+        return memory;
+    }
+
+    public String getCpu() {
+        return cpu;
     }
 
     public void setRegionName(String regionName) {
@@ -300,9 +338,9 @@ public class ECSFargateCloud extends ECSCloud {
                     label == null ? null : label.toString(), new JNLPLauncher());
                 slave.setClusterArn(cluster);
                 Jenkins.getInstance().addNode(slave);
-                while (Jenkins.getInstance().getNode(slave.getNodeName()) == null) {
-                    Thread.sleep(1000);
-                }
+//                while (Jenkins.getInstance().getNode(slave.getNodeName()) == null) {
+//                    Thread.sleep(1000);
+//                }
                 LOGGER.log(Level.INFO, "Created Slave: {0}", slave.getNodeName());
 
                 try {
@@ -365,7 +403,7 @@ public class ECSFargateCloud extends ECSCloud {
 
         @Override
         public String getDisplayName() {
-            return Messages.DisplayNameFargate();
+            return Messages.displayNameFargate();
         }
 
         public ListBoxModel doFillCredentialsIdItems() {

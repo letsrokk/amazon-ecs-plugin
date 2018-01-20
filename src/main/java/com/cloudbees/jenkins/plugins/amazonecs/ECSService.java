@@ -95,13 +95,11 @@ class ECSService {
 
     private void logAwsKey(final AmazonWebServicesCredentials credentials, final String awsServiceName) {
         if (credentials != null && LOGGER.isLoggable(Level.FINE)) {
-            if (LOGGER.isLoggable(Level.FINE)) {
-                final String awsAccessKeyId = credentials.getCredentials().getAWSAccessKeyId();
-                final String obfuscatedAccessKeyId = StringUtils.left(awsAccessKeyId, 4)
-                    + StringUtils.repeat("*", awsAccessKeyId.length() - 2 * 4) + StringUtils.right(awsAccessKeyId, 4);
-                LOGGER.log(Level.FINE, "Connect to Amazon {0} with IAM Access Key {1}",
-                    new Object[] {awsServiceName, obfuscatedAccessKeyId});
-            }
+            final String awsAccessKeyId = credentials.getCredentials().getAWSAccessKeyId();
+            final String obfuscatedAccessKeyId = StringUtils.left(awsAccessKeyId, 4)
+                + StringUtils.repeat("*", awsAccessKeyId.length() - 2 * 4) + StringUtils.right(awsAccessKeyId, 4);
+            LOGGER.log(Level.FINE, "Connect to Amazon {0} with IAM Access Key {1}",
+                new Object[] {awsServiceName, obfuscatedAccessKeyId});
         }
     }
 
@@ -228,7 +226,7 @@ class ECSService {
         }
 
         String lastToken = null;
-        Deque<String> taskDefinitions = new LinkedList<String>();
+        Deque<String> taskDefinitions = new LinkedList<>();
         do {
             ListTaskDefinitionsResult listTaskDefinitions = client.listTaskDefinitions(new ListTaskDefinitionsRequest()
                 .withFamilyPrefix(familyName)
@@ -242,6 +240,8 @@ class ECSService {
         boolean templateMatchesExistingVolumes = false;
         boolean templateMatchesExistingTaskRole = false;
         boolean templateMatchesCompatibility = false;
+        boolean templateMatchesCpuSize = false;
+        boolean templateMatchesMemorySize = false;
 
         DescribeTaskDefinitionResult describeTaskDefinition = null;
 
@@ -260,24 +260,45 @@ class ECSService {
             LOGGER.log(Level.INFO, "Match on task role: {0}", new Object[] {templateMatchesExistingTaskRole});
             LOGGER.log(Level.FINE, "Match on task role: {0}; template={1}; last={2}", new Object[] {templateMatchesExistingTaskRole, template.getTaskrole(), describeTaskDefinition.getTaskDefinition().getTaskRoleArn()});
 
-            templateMatchesCompatibility = describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities().contains(Compatibility.FARGATE.toString());
+            if(cloud instanceof ECSFargateCloud){
+                templateMatchesCompatibility = describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities().contains(Compatibility.FARGATE.toString());
+                LOGGER.log(Level.INFO, "Match on compatibility: {0}", new Object[] {templateMatchesCompatibility});
+                LOGGER.log(Level.FINE, "Match on compatibility: {0}; template={1}; last={2}", new Object[] {templateMatchesCompatibility, Compatibility.FARGATE, describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities()});
+
+                templateMatchesCpuSize = describeTaskDefinition.getTaskDefinition().getCpu().equals(((ECSFargateCloud)cloud).getCpu());
+                templateMatchesMemorySize = describeTaskDefinition.getTaskDefinition().getMemory().equals(((ECSFargateCloud)cloud).getMemory());
+            } else {
+                templateMatchesCompatibility = describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities().contains(Compatibility.EC2.toString());
+                LOGGER.log(Level.INFO, "Match on compatibility: {0}", new Object[] {templateMatchesCompatibility});
+                LOGGER.log(Level.FINE, "Match on compatibility: {0}; template={1}; last={2}", new Object[] {templateMatchesCompatibility, Compatibility.EC2, describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities()});
+
+                templateMatchesCpuSize = true;
+                templateMatchesMemorySize = true;
+            }
         }
 
-        templateMatchesCompatibility = false;
-
-        if (templateMatchesExistingContainerDefinition && templateMatchesExistingVolumes && templateMatchesExistingTaskRole && templateMatchesCompatibility) {
+        if (templateMatchesExistingContainerDefinition
+                && templateMatchesExistingVolumes
+                && templateMatchesExistingTaskRole
+                && templateMatchesCompatibility
+                && templateMatchesCpuSize
+                && templateMatchesMemorySize) {
             LOGGER.log(Level.FINE, "Task Definition already exists: {0}", new Object[] {describeTaskDefinition.getTaskDefinition().getTaskDefinitionArn()});
             return describeTaskDefinition.getTaskDefinition().getTaskDefinitionArn();
         } else {
             final RegisterTaskDefinitionRequest request = new RegisterTaskDefinitionRequest()
                 .withFamily(familyName)
                 .withVolumes(template.getVolumeEntries())
-                .withContainerDefinitions(def)
-                    // IF FARGATE
-                    .withCpu("512")
-                    .withMemory("1024")
-                    .withNetworkMode(NetworkMode.Awsvpc)
-                    .withRequiresCompatibilities(Compatibility.FARGATE);
+                .withContainerDefinitions(def);
+
+            if(cloud instanceof ECSFargateCloud){
+                request.withCpu(((ECSFargateCloud)cloud).getCpu())
+                        .withMemory(((ECSFargateCloud)cloud).getMemory())
+                        .withNetworkMode(NetworkMode.Awsvpc)
+                        .withRequiresCompatibilities(Compatibility.FARGATE);
+            } else {
+                request.withRequiresCompatibilities(Compatibility.EC2);
+            }
 
             if (template.getTaskrole() != null) {
                 request.withTaskRoleArn(template.getTaskrole());
@@ -306,24 +327,30 @@ class ECSService {
         envNodeSecret.setName("SLAVE_NODE_SECRET");
         envNodeSecret.setValue(slave.getComputer().getJnlpMac());
 
-        final RunTaskResult runTaskResult = client.runTask(new RunTaskRequest()
-            .withTaskDefinition(taskDefinitionArn)
-            .withOverrides(new TaskOverride()
+        TaskOverride taskOverride = new TaskOverride()
                 .withContainerOverrides(new ContainerOverride()
-                    .withName(fullQualifiedTemplateName(slave.getCloud(), template))
-                    .withCommand(command)
-                    .withEnvironment(envNodeName)
-                    .withEnvironment(envNodeSecret)))
-                // IF FARGATE
-                .withLaunchType(LaunchType.FARGATE)
-                .withNetworkConfiguration(new NetworkConfiguration().withAwsvpcConfiguration(
-                        new AwsVpcConfiguration()
-                                .withAssignPublicIp(AssignPublicIp.DISABLED)
-                                .withSubnets("subnet-d8ae3785")
-                                .withSecurityGroups("sg-47c18e33")
-                ))
-            .withCluster(clusterArn)
-        );
+                        .withName(fullQualifiedTemplateName(slave.getCloud(), template))
+                        .withCommand(command)
+                        .withEnvironment(envNodeName)
+                        .withEnvironment(envNodeSecret));
+
+        RunTaskRequest runTaskRequest = new RunTaskRequest()
+                .withTaskDefinition(taskDefinitionArn)
+                .withOverrides(taskOverride);
+
+        if(slave.getCloud() instanceof ECSStandartCloud){
+            runTaskRequest.withLaunchType(LaunchType.EC2);
+        } else {
+            runTaskRequest.withLaunchType(LaunchType.FARGATE)
+                    .withNetworkConfiguration(new NetworkConfiguration().withAwsvpcConfiguration(
+                            new AwsVpcConfiguration()
+                                    .withAssignPublicIp(AssignPublicIp.DISABLED)
+                                    .withSubnets(((ECSFargateCloud)slave.getCloud()).getSubnetId())
+                                    .withSecurityGroups(((ECSFargateCloud)slave.getCloud()).getSecurityGroup())
+                    )).withCluster(clusterArn);
+        }
+
+        final RunTaskResult runTaskResult = client.runTask(runTaskRequest);
 
         if (!runTaskResult.getFailures().isEmpty()) {
             LOGGER.log(Level.WARNING, "Slave {0} - Failure to run task with definition {1} on ECS cluster {2}", new Object[] {slave.getNodeName(), taskDefinitionArn, clusterArn});

@@ -502,7 +502,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
 
         @Override
         public String getDisplayName() {
-            return Messages.Template();
+            return Messages.template();
         }
 
         public FormValidation doCheckTemplateName(@QueryParameter String value) throws IOException, ServletException {
