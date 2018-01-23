@@ -13,3 +13,9 @@ Please find the documentation on the [Jenkins Wiki page Amazon EC2 Container Ser
 - this fork implements support for [Amazon Fargate](https://aws.amazon.com/fargate/)
 - merged changes for ECS EC2 Autoscaling by [cbamelis](https://github.com/cbamelis/amazon-ecs-plugin/tree/autoscaling)
 - merged changes from pull-request fixing [limit of slaves per template](https://github.com/jenkinsci/amazon-ecs-plugin/pull/48) 
+
+## Build
+
+```
+$ mvn clean compile hpi:hpi
+```
