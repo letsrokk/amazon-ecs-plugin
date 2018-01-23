@@ -50,15 +50,15 @@
   </f:entry>
 
   <f:entry field="securityGroup" title="${%ECS Security Group}">
-    <f:textbox />
+    <f:select />
   </f:entry>
 
   <f:entry field="memory" title="${%ECS Task Size}">
-    <f:textbox />
+    <f:select />
   </f:entry>
 
   <f:entry field="cpu" title="${%ECS CPU}">
-    <f:textbox />
+    <f:select />
   </f:entry>
 
   <f:advanced>

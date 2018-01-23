@@ -533,7 +533,7 @@ public class ECSFargateCloud extends ECSCloud {
                     final String groupVpcId = securityGroup.getVpcId();
                     final String groupId = securityGroup.getGroupId();
                     final String groupName = securityGroup.getGroupName();
-                    options.add(groupId + " | " + groupVpcId + groupName, groupId);
+                    options.add(groupId + " | " + groupVpcId + " | " + groupName, groupId);
                 }
                 return options;
             } catch (AmazonClientException e) {
