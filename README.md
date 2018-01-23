@@ -2,7 +2,7 @@
 
 ## About
 
-This jenkins plugin do use [Amazon EC2 Container Service](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/Welcome.html) to host jobs execution inside docker containers.
+This jenkins plugin do use [Amazon Elastic Container Service](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/Welcome.html) and [Amazon Fargate](https://aws.amazon.com/fargate/) to host jobs execution inside docker containers.
 
 ## Documentation and Installation
 
