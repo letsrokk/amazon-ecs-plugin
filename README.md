@@ -18,4 +18,10 @@ Please find the documentation on the [Jenkins Wiki page Amazon EC2 Container Ser
 
 ```
 $ mvn clean compile hpi:hpi
+$ ls target/ | grep hpi
+amazon-ecs.hpi
 ```
+
+## Install
+
+Install plugin using `Manage Jenkins -> Manage Plugins -> Advanced -> Upload Plugin`
