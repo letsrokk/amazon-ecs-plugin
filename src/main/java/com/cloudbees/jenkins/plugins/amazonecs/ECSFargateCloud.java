@@ -61,6 +61,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.servlet.ServletException;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.text.MessageFormat;
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -551,7 +552,7 @@ public class ECSFargateCloud extends ECSCloud {
             ListBoxModel memoryItems = new ListBoxModel();
 
             memoryItems.add("0.5 GB", "512");
-            IntStream.range(1, 30)
+            IntStream.range(1, 31)
                     .forEach(value -> memoryItems.add(value + " GB", String.valueOf(value * 1024)));
 
             return memoryItems;
@@ -561,7 +562,9 @@ public class ECSFargateCloud extends ECSCloud {
             ListBoxModel cpuItems = new ListBoxModel();
 
             Stream.of(".25", ".5", "1", "2", "4").forEach(value -> {
-                String cpuCredits = String.valueOf(Double.parseDouble(value) * 1024);
+                String cpuCredits = new BigDecimal(Double.parseDouble(value) * 1024)
+                        .setScale(0, BigDecimal.ROUND_HALF_UP)
+                        .toPlainString();
                 cpuItems.add(value + " vCPU | " + cpuCredits, cpuCredits);
             });
 
@@ -599,7 +602,7 @@ public class ECSFargateCloud extends ECSCloud {
         }
 
         private List<String> getMemoryItems(int from, int to){
-            return IntStream.range(from, to).boxed()
+            return IntStream.range(from, to + 1).boxed()
                     .map(value -> String.valueOf(value * 1024))
                     .collect(Collectors.toList());
         }
