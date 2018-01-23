@@ -1,4 +1,4 @@
-# Amazon EC2 Container Service Plugin for Jenkins
+# Amazon ECS and Fargate Plugin for Jenkins
 
 ## About
 
