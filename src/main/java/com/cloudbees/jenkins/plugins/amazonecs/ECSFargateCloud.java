@@ -64,11 +64,11 @@ import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
@@ -511,9 +511,97 @@ public class ECSFargateCloud extends ECSCloud {
                 LOGGER.log(Level.FINE, "Exception searching subnets for credentials=" + credentialsId + ", regionName=" + regionName, e);
                 return new ListBoxModel();
             } catch (RuntimeException e) {
-                LOGGER.log(Level.INFO, "Exception searching autoscaling instances for credentials=" + credentialsId + ", regionName=" + regionName, e);
+                LOGGER.log(Level.INFO, "Exception searching subnets for credentials=" + credentialsId + ", regionName=" + regionName, e);
                 return new ListBoxModel();
             }
+        }
+
+        public ListBoxModel doFillSecurityGroupItems(@QueryParameter String credentialsId, @QueryParameter String regionName, @QueryParameter String vpcId){
+            if(StringUtils.isEmpty(vpcId))
+                return new ListBoxModel();
+
+            final ECSService ecsService = new ECSService(credentialsId, regionName);
+            try{
+                final AmazonEC2Client client = ecsService.getAmazonEC2Client();
+
+                DescribeSecurityGroupsRequest describeSecurityGroupsRequest = new DescribeSecurityGroupsRequest()
+                        .withFilters(new Filter().withName("vpc-id").withValues(vpcId));
+                DescribeSecurityGroupsResult describeSecurityGroupsResult = client.describeSecurityGroups(describeSecurityGroupsRequest);
+
+                final ListBoxModel options = new ListBoxModel();
+                for (SecurityGroup securityGroup : describeSecurityGroupsResult.getSecurityGroups()) {
+                    final String groupVpcId = securityGroup.getVpcId();
+                    final String groupId = securityGroup.getGroupId();
+                    final String groupName = securityGroup.getGroupName();
+                    options.add(groupId + " | " + groupVpcId + groupName, groupId);
+                }
+                return options;
+            } catch (AmazonClientException e) {
+                // missing credentials will throw an "AmazonClientException: Unable to load AWS credentials from any provider in the chain"
+                LOGGER.log(Level.INFO, "Exception searching security groups for credentials=" + credentialsId + ", regionName=" + regionName + ":" + e);
+                LOGGER.log(Level.FINE, "Exception searching security groups for credentials=" + credentialsId + ", regionName=" + regionName, e);
+                return new ListBoxModel();
+            } catch (RuntimeException e) {
+                LOGGER.log(Level.INFO, "Exception searching security groups for credentials=" + credentialsId + ", regionName=" + regionName, e);
+                return new ListBoxModel();
+            }
+        }
+
+        public ListBoxModel doFillMemoryItems(){
+            ListBoxModel memoryItems = new ListBoxModel();
+
+            memoryItems.add("0.5 GB", "512");
+            IntStream.range(1, 30)
+                    .forEach(value -> memoryItems.add(value + " GB", String.valueOf(value * 1024)));
+
+            return memoryItems;
+        }
+
+        public ListBoxModel doFillCpuItems(){
+            ListBoxModel cpuItems = new ListBoxModel();
+
+            Stream.of(".25", ".5", "1", "2", "4").forEach(value -> {
+                String cpuCredits = String.valueOf(Double.parseDouble(value) * 1024);
+                cpuItems.add(value + " vCPU | " + cpuCredits, cpuCredits);
+            });
+
+            return cpuItems;
+        }
+
+        // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
+        // valid cpu memory combinations
+        public FormValidation doCheckCpu(@QueryParameter final String value, @QueryParameter String memory){
+            boolean valid;
+            switch (value){
+                case "256":
+                    valid = Arrays.asList("512","1024","2048").contains(memory);
+                    break;
+                case "512":
+                    valid = getMemoryItems(1, 4).contains(memory);
+                    break;
+                case "1024":
+                    valid = getMemoryItems(2, 8).contains(memory);
+                    break;
+                case "2048":
+                    valid = getMemoryItems(4, 16).contains(memory);
+                    break;
+                case "4096":
+                    valid = getMemoryItems(8, 30).contains(memory);
+                    break;
+                default:
+                    return FormValidation.error("Invalid CPU value: " + value);
+            }
+            if(valid)
+                return FormValidation.ok();
+            else
+                return FormValidation.error("Invalid CPU to Memory combination: " +
+                        value + " CPU units and " + memory + "MB memory");
+        }
+
+        private List<String> getMemoryItems(int from, int to){
+            return IntStream.range(from, to).boxed()
+                    .map(value -> String.valueOf(value * 1024))
+                    .collect(Collectors.toList());
         }
 
         public FormValidation doCheckName(@QueryParameter final String value) throws IOException, ServletException {
