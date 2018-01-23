@@ -290,6 +290,9 @@ class ECSService {
                 .withFamily(familyName)
                 .withVolumes(template.getVolumeEntries())
                 .withContainerDefinitions(def);
+                    //TODO add role selection for ECR support
+//                    .withExecutionRoleArn("arn:aws:iam::383260073379:role/ecrEcsRole")
+//                    .withTaskRoleArn("arn:aws:iam::383260073379:role/ecrEcsRole");
 
             if(cloud instanceof ECSFargateCloud){
                 request.withCpu(((ECSFargateCloud)cloud).getCpu())
@@ -395,6 +398,8 @@ class ECSService {
                 }
             }
 
+
+            //TODO synchronize scale out calls to avoid unnecessary scaling
             // not enough free resources -> scale out
             if (StringUtils.isNotEmpty(asgName)) {
                 if (autoScalingClient == null) {

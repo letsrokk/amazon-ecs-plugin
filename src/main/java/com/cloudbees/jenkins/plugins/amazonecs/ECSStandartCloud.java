@@ -326,6 +326,7 @@ public class ECSStandartCloud extends ECSCloud {
             synchronized (cluster) {
                 getEcsService().waitForSufficientClusterResources(timeout, template, cluster, autoScalingGroup);
 
+                //TODO add label name to slave name
                 String uniq = Long.toHexString(System.nanoTime());
                 slave = new ECSSlave(ECSStandartCloud.this, name + "-" + uniq, template.getRemoteFSRoot(),
                     label == null ? null : label.toString(), new JNLPLauncher());
