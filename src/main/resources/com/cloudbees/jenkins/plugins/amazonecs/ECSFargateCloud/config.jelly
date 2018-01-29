@@ -61,6 +61,10 @@
     <f:select />
   </f:entry>
 
+  <f:entry field="iamRole" title="${%ECS IAM Role}">
+    <f:select />
+  </f:entry>
+
   <f:advanced>
     <f:entry field="tunnel" title="${%Tunnel connection through}" help="/help/system-config/master-slave/jnlp-tunnel.html">
       <f:textbox />

@@ -38,6 +38,8 @@ import com.amazonaws.services.ec2.model.*;
 import com.amazonaws.services.ecs.AmazonECSClient;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
+import com.amazonaws.services.identitymanagement.model.ListRolesResult;
 import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
 import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
 import hudson.Extension;
@@ -138,6 +140,8 @@ public class ECSFargateCloud extends ECSCloud {
 
     private final String securityGroup;
 
+    private final String iamRole;
+
     private final String memory;
 
     private final String cpu;
@@ -166,6 +170,7 @@ public class ECSFargateCloud extends ECSCloud {
             String subnetId,
             String securityGroup,
             String regionName,
+            String iamRole,
             String memory,
             String cpu,
             String jenkinsUrl,
@@ -179,6 +184,7 @@ public class ECSFargateCloud extends ECSCloud {
         this.securityGroup = securityGroup;
         this.templates = templates;
         this.regionName = regionName;
+        this.iamRole = iamRole;
         this.memory = memory;
         this.cpu = cpu;
         LOGGER.log(Level.INFO, "Create ECS cloud {0} on ECS cluster {1} on the region {2}", new Object[] {name, cluster, regionName});
@@ -234,6 +240,10 @@ public class ECSFargateCloud extends ECSCloud {
 
     public String getSecurityGroup() {
         return securityGroup;
+    }
+
+    public String getIamRole() {
+        return StringUtils.trimToNull(iamRole);
     }
 
     public String getRegionName() {
@@ -544,6 +554,27 @@ public class ECSFargateCloud extends ECSCloud {
                 return new ListBoxModel();
             } catch (RuntimeException e) {
                 LOGGER.log(Level.INFO, "Exception searching security groups for credentials=" + credentialsId + ", regionName=" + regionName, e);
+                return new ListBoxModel();
+            }
+        }
+
+        public ListBoxModel doFillIamRoleItems(@QueryParameter String credentialsId, @QueryParameter String regionName){
+            ListBoxModel iamRoles = new ListBoxModel();
+            iamRoles.add("","");
+
+            final ECSService ecsService = new ECSService(credentialsId, regionName);
+            try{
+                AmazonIdentityManagementClient client = ecsService.getAmazonIAMClient();
+                ListRolesResult availableRoles = client.listRoles();
+                availableRoles.getRoles().forEach(role -> iamRoles.add(role.getRoleName(), role.getArn()));
+                return iamRoles;
+            } catch (AmazonClientException e) {
+                // missing credentials will throw an "AmazonClientException: Unable to load AWS credentials from any provider in the chain"
+                LOGGER.log(Level.INFO, "Exception searching IAM roles for credentials=" + credentialsId + ", regionName=" + regionName + ":" + e);
+                LOGGER.log(Level.FINE, "Exception searching IAM roles for credentials=" + credentialsId + ", regionName=" + regionName, e);
+                return new ListBoxModel();
+            } catch (RuntimeException e) {
+                LOGGER.log(Level.INFO, "Exception searching IAM roles for credentials=" + credentialsId + ", regionName=" + regionName, e);
                 return new ListBoxModel();
             }
         }

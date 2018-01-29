@@ -39,6 +39,7 @@ import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
 
 import com.amazonaws.services.ecs.model.*;
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
 
@@ -101,6 +102,24 @@ class ECSService {
             LOGGER.log(Level.FINE, "Connect to Amazon {0} with IAM Access Key {1}",
                 new Object[] {awsServiceName, obfuscatedAccessKeyId});
         }
+    }
+
+    AmazonIdentityManagementClient getAmazonIAMClient() {
+        final AmazonIdentityManagementClient client;
+
+        final ClientConfiguration clientConfiguration = getClientConfiguration();
+        final AmazonWebServicesCredentials credentials = getCredentials(credentialsId);
+        if (credentials == null) {
+            // no credentials provided, rely on com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+            // to use IAM Role define at the EC2 instance level ...
+            client = new AmazonIdentityManagementClient(clientConfiguration);
+        } else {
+            logAwsKey(credentials, "IAM");
+            client = new AmazonIdentityManagementClient(credentials, clientConfiguration);
+        }
+        client.setRegion(getRegion(regionName));
+        LOGGER.log(Level.FINE, "Selected Region: {0}", regionName);
+        return client;
     }
 
     AmazonECSClient getAmazonECSClient() {
@@ -242,6 +261,7 @@ class ECSService {
         boolean templateMatchesCompatibility = false;
         boolean templateMatchesCpuSize = false;
         boolean templateMatchesMemorySize = false;
+        boolean templateMatchesExistingTaskExcutionRole = false;
 
         DescribeTaskDefinitionResult describeTaskDefinition = null;
 
@@ -267,6 +287,13 @@ class ECSService {
 
                 templateMatchesCpuSize = describeTaskDefinition.getTaskDefinition().getCpu().equals(((ECSFargateCloud)cloud).getCpu());
                 templateMatchesMemorySize = describeTaskDefinition.getTaskDefinition().getMemory().equals(((ECSFargateCloud)cloud).getMemory());
+
+                templateMatchesExistingTaskExcutionRole = StringUtils.equals(
+                        describeTaskDefinition.getTaskDefinition().getExecutionRoleArn(),
+                        ((ECSFargateCloud)cloud).getIamRole()
+                );
+                LOGGER.log(Level.INFO, "Match on task execution role: {0}", new Object[] {templateMatchesExistingTaskExcutionRole});
+                LOGGER.log(Level.FINE, "Match on task execution role: {0}; template={1}; last={2}", new Object[] {templateMatchesExistingTaskExcutionRole, ((ECSFargateCloud)cloud).getIamRole(), describeTaskDefinition.getTaskDefinition().getExecutionRoleArn()});
             } else {
                 templateMatchesCompatibility = describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities().contains(Compatibility.EC2.toString());
                 LOGGER.log(Level.INFO, "Match on compatibility: {0}", new Object[] {templateMatchesCompatibility});
@@ -274,6 +301,7 @@ class ECSService {
 
                 templateMatchesCpuSize = true;
                 templateMatchesMemorySize = true;
+                templateMatchesExistingTaskExcutionRole = true;
             }
         }
 
@@ -282,7 +310,8 @@ class ECSService {
                 && templateMatchesExistingTaskRole
                 && templateMatchesCompatibility
                 && templateMatchesCpuSize
-                && templateMatchesMemorySize) {
+                && templateMatchesMemorySize
+                && templateMatchesExistingTaskExcutionRole) {
             LOGGER.log(Level.FINE, "Task Definition already exists: {0}", new Object[] {describeTaskDefinition.getTaskDefinition().getTaskDefinitionArn()});
             return describeTaskDefinition.getTaskDefinition().getTaskDefinitionArn();
         } else {
@@ -290,15 +319,15 @@ class ECSService {
                 .withFamily(familyName)
                 .withVolumes(template.getVolumeEntries())
                 .withContainerDefinitions(def);
-                    //TODO add role selection for ECR support
-//                    .withExecutionRoleArn("arn:aws:iam::383260073379:role/ecrEcsRole")
-//                    .withTaskRoleArn("arn:aws:iam::383260073379:role/ecrEcsRole");
 
             if(cloud instanceof ECSFargateCloud){
                 request.withCpu(((ECSFargateCloud)cloud).getCpu())
                         .withMemory(((ECSFargateCloud)cloud).getMemory())
                         .withNetworkMode(NetworkMode.Awsvpc)
                         .withRequiresCompatibilities(Compatibility.FARGATE);
+                if(StringUtils.isNotEmpty(((ECSFargateCloud) cloud).getIamRole())){
+                    request.withExecutionRoleArn(((ECSFargateCloud) cloud).getIamRole());
+                }
             } else {
                 request.withRequiresCompatibilities(Compatibility.EC2);
             }
