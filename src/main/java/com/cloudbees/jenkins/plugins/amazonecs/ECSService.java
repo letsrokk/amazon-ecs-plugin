@@ -69,7 +69,7 @@ import jenkins.model.Jenkins;
  */
 class ECSService {
 
-    private static final Logger LOGGER = Logger.getLogger(ECSStandartCloud.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ECSEC2Cloud.class.getName());
 
     private String credentialsId;
 
@@ -341,7 +341,7 @@ class ECSService {
                 .withTaskDefinition(taskDefinitionArn)
                 .withOverrides(taskOverride);
 
-        if(slave.getCloud() instanceof ECSStandartCloud){
+        if(slave.getCloud() instanceof ECSEC2Cloud){
             runTaskRequest.withLaunchType(LaunchType.EC2);
         } else {
             runTaskRequest.withLaunchType(LaunchType.FARGATE)

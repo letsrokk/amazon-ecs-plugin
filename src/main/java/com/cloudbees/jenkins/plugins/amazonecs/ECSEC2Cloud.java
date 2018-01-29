@@ -78,9 +78,9 @@ import jenkins.model.JenkinsLocationConfiguration;
 /**
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
-public class ECSStandartCloud extends ECSCloud {
+public class ECSEC2Cloud extends ECSCloud {
 
-    private static final Logger LOGGER = Logger.getLogger(ECSStandartCloud.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ECSEC2Cloud.class.getName());
 
     private static final int DEFAULT_SLAVE_TIMEOUT = 900;
 
@@ -103,8 +103,8 @@ public class ECSStandartCloud extends ECSCloud {
 
         // Start auto scale in
         for (final Cloud c : jenkins.clouds) {
-            if (c instanceof ECSStandartCloud) {
-                final ECSStandartCloud ecsCloud = (ECSStandartCloud)c;
+            if (c instanceof ECSEC2Cloud) {
+                final ECSEC2Cloud ecsCloud = (ECSEC2Cloud)c;
                 ecsCloud.startAutoScaleIn();
             }
         }
@@ -122,7 +122,7 @@ public class ECSStandartCloud extends ECSCloud {
         return ecsSlaves;
     }
 
-    public static List<ECSSlave> getSlavesOfCloud(final ECSStandartCloud ecsCloud) {
+    public static List<ECSSlave> getSlavesOfCloud(final ECSEC2Cloud ecsCloud) {
         final List<ECSSlave> resultSlaves = new ArrayList<ECSSlave>();
         for (final ECSSlave ecsSlave : getSlaves()) {
             if (ecsSlave.getCloud() == ecsCloud) {
@@ -132,8 +132,8 @@ public class ECSStandartCloud extends ECSCloud {
         return resultSlaves;
     }
 
-    public static ECSStandartCloud get() {
-        return Hudson.getInstance().clouds.get(ECSStandartCloud.class);
+    public static ECSEC2Cloud get() {
+        return Hudson.getInstance().clouds.get(ECSEC2Cloud.class);
     }
 
     private final List<ECSTaskTemplate> templates;
@@ -165,8 +165,8 @@ public class ECSStandartCloud extends ECSCloud {
     private ECSService ecsService;
 
     @DataBoundConstructor
-    public ECSStandartCloud(String name, List<ECSTaskTemplate> templates, @Nonnull String credentialsId,
-                            String cluster, String autoScalingGroup, String regionName, String jenkinsUrl, int slaveTimoutInSeconds) throws InterruptedException {
+    public ECSEC2Cloud(String name, List<ECSTaskTemplate> templates, @Nonnull String credentialsId,
+                       String cluster, String autoScalingGroup, String regionName, String jenkinsUrl, int slaveTimoutInSeconds) throws InterruptedException {
         super(name);
         this.credentialsId = credentialsId;
         this.cluster = cluster;
@@ -328,7 +328,7 @@ public class ECSStandartCloud extends ECSCloud {
 
                 //TODO add label name to slave name
                 String uniq = Long.toHexString(System.nanoTime());
-                slave = new ECSSlave(ECSStandartCloud.this, name + "-" + uniq, template.getRemoteFSRoot(),
+                slave = new ECSSlave(ECSEC2Cloud.this, name + "-" + uniq, template.getRemoteFSRoot(),
                     label == null ? null : label.toString(), new JNLPLauncher());
                 slave.setClusterArn(cluster);
                 Jenkins.getInstance().addNode(slave);

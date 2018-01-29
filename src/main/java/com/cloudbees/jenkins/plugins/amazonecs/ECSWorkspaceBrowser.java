@@ -32,7 +32,7 @@ public class ECSWorkspaceBrowser extends WorkspaceBrowser {
         final String jobName = job.getName();
         if (job instanceof AbstractProject) {
             final String assignedLabel = ((AbstractProject)job).getAssignedLabelString();
-            final ECSStandartCloud ecsCloud = ECSStandartCloud.get();
+            final ECSEC2Cloud ecsCloud = ECSEC2Cloud.get();
             if (ecsCloud == null) {
                 LOGGER.info("No ECS cloud found.");
             } else {

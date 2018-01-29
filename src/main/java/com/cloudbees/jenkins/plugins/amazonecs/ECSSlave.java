@@ -50,7 +50,7 @@ import java.util.logging.Logger;
  */
 public class ECSSlave extends AbstractCloudSlave {
 
-    private static final Logger LOGGER = Logger.getLogger(ECSStandartCloud.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ECSEC2Cloud.class.getName());
 
     @Nonnull
     private final ECSCloud cloud;
