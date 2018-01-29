@@ -40,6 +40,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.servlet.ServletException;
 
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
+import com.amazonaws.services.identitymanagement.model.ListRolesResult;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -80,7 +82,7 @@ import jenkins.model.JenkinsLocationConfiguration;
  */
 public class ECSEC2Cloud extends ECSCloud {
 
-    private static final Logger LOGGER = Logger.getLogger(ECSEC2Cloud.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
     private static final int DEFAULT_SLAVE_TIMEOUT = 900;
 
@@ -165,8 +167,16 @@ public class ECSEC2Cloud extends ECSCloud {
     private ECSService ecsService;
 
     @DataBoundConstructor
-    public ECSEC2Cloud(String name, List<ECSTaskTemplate> templates, @Nonnull String credentialsId,
-                       String cluster, String autoScalingGroup, String regionName, String jenkinsUrl, int slaveTimoutInSeconds) throws InterruptedException {
+    public ECSEC2Cloud(
+            String name,
+            List<ECSTaskTemplate> templates,
+            @Nonnull String credentialsId,
+            String cluster,
+            String autoScalingGroup,
+            String regionName,
+            String jenkinsUrl,
+            int slaveTimoutInSeconds
+    ) throws InterruptedException {
         super(name);
         this.credentialsId = credentialsId;
         this.cluster = cluster;
@@ -191,6 +201,8 @@ public class ECSEC2Cloud extends ECSCloud {
         } else {
             this.slaveTimoutInSeconds = DEFAULT_SLAVE_TIMEOUT;
         }
+
+        startAutoScaleIn();
     }
 
     private void startAutoScaleIn() {

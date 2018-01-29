@@ -25,20 +25,19 @@
 
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import com.amazonaws.services.ecs.model.ContainerDefinition;
-import com.amazonaws.services.ecs.model.HostEntry;
-import com.amazonaws.services.ecs.model.Volume;
-import com.amazonaws.services.ecs.model.HostVolumeProperties;
-import com.amazonaws.services.ecs.model.MountPoint;
-import com.amazonaws.services.ecs.model.KeyValuePair;
-import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.services.ecs.model.*;
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
+import com.amazonaws.services.identitymanagement.model.ListRolesResult;
 import hudson.Extension;
+import hudson.RelativePath;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import hudson.model.Label;
 import hudson.model.labels.LabelAtom;
 import hudson.util.FormValidation;
 
+import hudson.util.ListBoxModel;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -51,11 +50,15 @@ import javax.servlet.ServletException;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
 public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
+
+    private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
     /**
      * Template Name
@@ -143,6 +146,15 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
      */
     @CheckForNull
     private String taskrole;
+
+    /**
+     * ARN of the IAM role to use for the slave ECS task
+     *
+     * @see RegisterTaskDefinitionRequest#withTaskRoleArn(String)
+     */
+    @CheckForNull
+    private String taskExecutionRole;
+
     /**
       JVM arguments to start slave.jar
      */
@@ -218,6 +230,11 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     }
 
     @DataBoundSetter
+    public void setTaskExecutionRole(String taskExecutionRole) {
+        this.taskExecutionRole = StringUtils.trimToNull(taskExecutionRole);
+    }
+
+    @DataBoundSetter
     public void setEntrypoint(String entrypoint) {
         this.entrypoint = StringUtils.trimToNull(entrypoint);
     }
@@ -271,6 +288,10 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
 
     public String getTaskrole() {
         return taskrole;
+    }
+
+    public String getTaskExecutionRole() {
+        return taskExecutionRole;
     }
 
     public String getJvmArgs() {
@@ -503,6 +524,30 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         @Override
         public String getDisplayName() {
             return Messages.template();
+        }
+
+        public ListBoxModel doFillTaskExecutionRoleItems(
+                @QueryParameter("credentialsId") @RelativePath("..") String credentialsId,
+                @QueryParameter("regionName") @RelativePath("..") String regionName
+        ){
+            ListBoxModel iamRoles = new ListBoxModel();
+            iamRoles.add("","");
+
+            final ECSService ecsService = new ECSService(credentialsId, regionName);
+            try{
+                AmazonIdentityManagementClient client = ecsService.getAmazonIAMClient();
+                ListRolesResult availableRoles = client.listRoles();
+                availableRoles.getRoles().forEach(role -> iamRoles.add(role.getRoleName(), role.getArn()));
+                return iamRoles;
+            } catch (AmazonClientException e) {
+                // missing credentials will throw an "AmazonClientException: Unable to load AWS credentials from any provider in the chain"
+                LOGGER.log(Level.INFO, "Exception searching IAM roles for credentials=" + credentialsId + ", regionName=" + regionName + ":" + e);
+                LOGGER.log(Level.FINE, "Exception searching IAM roles for credentials=" + credentialsId + ", regionName=" + regionName, e);
+                return new ListBoxModel();
+            } catch (RuntimeException e) {
+                LOGGER.log(Level.INFO, "Exception searching IAM roles for credentials=" + credentialsId + ", regionName=" + regionName, e);
+                return new ListBoxModel();
+            }
         }
 
         public FormValidation doCheckTemplateName(@QueryParameter String value) throws IOException, ServletException {
