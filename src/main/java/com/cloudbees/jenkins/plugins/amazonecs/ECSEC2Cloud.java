@@ -191,6 +191,8 @@ public class ECSEC2Cloud extends ECSCloud {
         } else {
             this.slaveTimoutInSeconds = DEFAULT_SLAVE_TIMEOUT;
         }
+
+        startAutoScaleIn();
     }
 
     private void startAutoScaleIn() {
