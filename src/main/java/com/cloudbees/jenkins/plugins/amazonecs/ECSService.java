@@ -282,10 +282,10 @@ class ECSService {
 
             templateMatchesExistingTaskExcutionRole = StringUtils.equals(
                     describeTaskDefinition.getTaskDefinition().getExecutionRoleArn(),
-                    cloud.getTaskExecutionRole()
+                    template.getTaskExecutionRole()
             );
             LOGGER.log(Level.INFO, "Match on task execution role: {0}", new Object[] {templateMatchesExistingTaskExcutionRole});
-            LOGGER.log(Level.FINE, "Match on task execution role: {0}; template={1}; last={2}", new Object[] {templateMatchesExistingTaskExcutionRole, cloud.getTaskExecutionRole(), describeTaskDefinition.getTaskDefinition().getExecutionRoleArn()});
+            LOGGER.log(Level.FINE, "Match on task execution role: {0}; template={1}; last={2}", new Object[] {templateMatchesExistingTaskExcutionRole, template.getTaskExecutionRole(), describeTaskDefinition.getTaskDefinition().getExecutionRoleArn()});
 
             if(cloud instanceof ECSFargateCloud){
                 templateMatchesCompatibility = describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities().contains(Compatibility.FARGATE.toString());
@@ -328,8 +328,8 @@ class ECSService {
                 request.withRequiresCompatibilities(Compatibility.EC2);
             }
 
-            if(StringUtils.isNotEmpty(cloud.getTaskExecutionRole())){
-                request.withExecutionRoleArn(cloud.getTaskExecutionRole());
+            if(template.getTaskExecutionRole() != null){
+                request.withExecutionRoleArn(template.getTaskExecutionRole());
             }
 
             if (template.getTaskrole() != null) {

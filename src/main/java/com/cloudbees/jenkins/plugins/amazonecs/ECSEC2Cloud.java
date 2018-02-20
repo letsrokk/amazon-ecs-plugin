@@ -82,7 +82,7 @@ import jenkins.model.JenkinsLocationConfiguration;
  */
 public class ECSEC2Cloud extends ECSCloud {
 
-    private static final Logger LOGGER = Logger.getLogger(ECSEC2Cloud.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
     private static final int DEFAULT_SLAVE_TIMEOUT = 900;
 
@@ -152,8 +152,6 @@ public class ECSEC2Cloud extends ECSCloud {
 
     private transient ScheduledExecutorService scheduledExecutorService;
 
-    private final String taskExecutionRole;
-
     private String regionName;
 
     /**
@@ -175,7 +173,6 @@ public class ECSEC2Cloud extends ECSCloud {
             @Nonnull String credentialsId,
             String cluster,
             String autoScalingGroup,
-            String taskExecutionRole,
             String regionName,
             String jenkinsUrl,
             int slaveTimoutInSeconds
@@ -184,7 +181,6 @@ public class ECSEC2Cloud extends ECSCloud {
         this.credentialsId = credentialsId;
         this.cluster = cluster;
         this.autoScalingGroup = autoScalingGroup;
-        this.taskExecutionRole = taskExecutionRole;
         this.templates = templates;
         this.regionName = regionName;
         LOGGER.log(Level.INFO, "Create ECS cloud {0} on ECS cluster {1} on the region {2}", new Object[] {name, cluster, regionName});
@@ -248,10 +244,6 @@ public class ECSEC2Cloud extends ECSCloud {
 
     public String getAutoScalingGroup() {
         return autoScalingGroup;
-    }
-
-    public String getTaskExecutionRole() {
-        return StringUtils.trimToNull(taskExecutionRole);
     }
 
     public String getRegionName() {
@@ -499,27 +491,6 @@ public class ECSEC2Cloud extends ECSCloud {
                 return new ListBoxModel();
             } catch (RuntimeException e) {
                 LOGGER.log(Level.INFO, "Exception searching autoscaling instances for credentials=" + credentialsId + ", regionName=" + regionName, e);
-                return new ListBoxModel();
-            }
-        }
-
-        public ListBoxModel doFillTaskExecutionRoleItems(@QueryParameter String credentialsId, @QueryParameter String regionName){
-            ListBoxModel iamRoles = new ListBoxModel();
-            iamRoles.add("","");
-
-            final ECSService ecsService = new ECSService(credentialsId, regionName);
-            try{
-                AmazonIdentityManagementClient client = ecsService.getAmazonIAMClient();
-                ListRolesResult availableRoles = client.listRoles();
-                availableRoles.getRoles().forEach(role -> iamRoles.add(role.getRoleName(), role.getArn()));
-                return iamRoles;
-            } catch (AmazonClientException e) {
-                // missing credentials will throw an "AmazonClientException: Unable to load AWS credentials from any provider in the chain"
-                LOGGER.log(Level.INFO, "Exception searching IAM roles for credentials=" + credentialsId + ", regionName=" + regionName + ":" + e);
-                LOGGER.log(Level.FINE, "Exception searching IAM roles for credentials=" + credentialsId + ", regionName=" + regionName, e);
-                return new ListBoxModel();
-            } catch (RuntimeException e) {
-                LOGGER.log(Level.INFO, "Exception searching IAM roles for credentials=" + credentialsId + ", regionName=" + regionName, e);
                 return new ListBoxModel();
             }
         }

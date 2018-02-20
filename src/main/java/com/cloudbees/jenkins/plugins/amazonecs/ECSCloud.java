@@ -10,5 +10,4 @@ abstract class ECSCloud extends Cloud {
 
     abstract void deleteTask(String taskArn, String clusterArn);
 
-    abstract String getTaskExecutionRole();
 }
