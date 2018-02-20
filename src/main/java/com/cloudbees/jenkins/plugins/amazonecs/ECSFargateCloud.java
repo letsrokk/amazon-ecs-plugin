@@ -29,10 +29,6 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.autoscaling.AmazonAutoScalingClient;
-import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
-import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest;
-import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.*;
 import com.amazonaws.services.ecs.AmazonECSClient;
@@ -140,7 +136,7 @@ public class ECSFargateCloud extends ECSCloud {
 
     private final String securityGroup;
 
-    private final String iamRole;
+    private final String taskExecutionRole;
 
     private final String memory;
 
@@ -170,7 +166,7 @@ public class ECSFargateCloud extends ECSCloud {
             String subnetId,
             String securityGroup,
             String regionName,
-            String iamRole,
+            String taskExecutionRole,
             String memory,
             String cpu,
             String jenkinsUrl,
@@ -184,7 +180,7 @@ public class ECSFargateCloud extends ECSCloud {
         this.securityGroup = securityGroup;
         this.templates = templates;
         this.regionName = regionName;
-        this.iamRole = iamRole;
+        this.taskExecutionRole = taskExecutionRole;
         this.memory = memory;
         this.cpu = cpu;
         LOGGER.log(Level.INFO, "Create ECS cloud {0} on ECS cluster {1} on the region {2}", new Object[] {name, cluster, regionName});
@@ -242,8 +238,8 @@ public class ECSFargateCloud extends ECSCloud {
         return securityGroup;
     }
 
-    public String getIamRole() {
-        return StringUtils.trimToNull(iamRole);
+    public String getTaskExecutionRole() {
+        return StringUtils.trimToNull(taskExecutionRole);
     }
 
     public String getRegionName() {
@@ -558,7 +554,7 @@ public class ECSFargateCloud extends ECSCloud {
             }
         }
 
-        public ListBoxModel doFillIamRoleItems(@QueryParameter String credentialsId, @QueryParameter String regionName){
+        public ListBoxModel doFillTaskExecutionRoleItems(@QueryParameter String credentialsId, @QueryParameter String regionName){
             ListBoxModel iamRoles = new ListBoxModel();
             iamRoles.add("","");
 

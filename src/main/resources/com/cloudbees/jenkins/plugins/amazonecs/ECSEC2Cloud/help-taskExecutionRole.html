@@ -23,10 +23,12 @@
   ~
   -->
 
+<p><a href="https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_execution_IAM_role.html">Amazon ECS Task Execution IAM Role</a>.</p>
+
 <p>
-    Task execution IAM role
-</p>
-<p>
-    This role is required by Fargate tasks to pull container images and publish container logs to Amazon CloudWatch on your behalf.
-    If you do not have the ecsTaskExecutionRole already, we can create one for you.
+    The Amazon ECS container agent makes calls to the Amazon ECS API actions on your behalf, so it requires an IAM policy and role for the service to know that the agent belongs to you. The following actions are covered by the task execution role:
+    <ul>
+        <li>Calls to Amazon ECR to pull the container image</li>
+        <li>Calls to CloudWatch to store container application logs</li>
+    </ul>
 </p>

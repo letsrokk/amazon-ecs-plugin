@@ -61,7 +61,7 @@
     <f:select />
   </f:entry>
 
-  <f:entry field="iamRole" title="${%ECS IAM Role}">
+  <f:entry field="taskExecutionRole" title="${%ECS Task Execution Role}">
     <f:select />
   </f:entry>
 

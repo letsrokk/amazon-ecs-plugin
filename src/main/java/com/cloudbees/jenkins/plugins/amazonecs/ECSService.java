@@ -280,6 +280,13 @@ class ECSService {
             LOGGER.log(Level.INFO, "Match on task role: {0}", new Object[] {templateMatchesExistingTaskRole});
             LOGGER.log(Level.FINE, "Match on task role: {0}; template={1}; last={2}", new Object[] {templateMatchesExistingTaskRole, template.getTaskrole(), describeTaskDefinition.getTaskDefinition().getTaskRoleArn()});
 
+            templateMatchesExistingTaskExcutionRole = StringUtils.equals(
+                    describeTaskDefinition.getTaskDefinition().getExecutionRoleArn(),
+                    cloud.getTaskExecutionRole()
+            );
+            LOGGER.log(Level.INFO, "Match on task execution role: {0}", new Object[] {templateMatchesExistingTaskExcutionRole});
+            LOGGER.log(Level.FINE, "Match on task execution role: {0}; template={1}; last={2}", new Object[] {templateMatchesExistingTaskExcutionRole, cloud.getTaskExecutionRole(), describeTaskDefinition.getTaskDefinition().getExecutionRoleArn()});
+
             if(cloud instanceof ECSFargateCloud){
                 templateMatchesCompatibility = describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities().contains(Compatibility.FARGATE.toString());
                 LOGGER.log(Level.INFO, "Match on compatibility: {0}", new Object[] {templateMatchesCompatibility});
@@ -287,13 +294,6 @@ class ECSService {
 
                 templateMatchesCpuSize = describeTaskDefinition.getTaskDefinition().getCpu().equals(((ECSFargateCloud)cloud).getCpu());
                 templateMatchesMemorySize = describeTaskDefinition.getTaskDefinition().getMemory().equals(((ECSFargateCloud)cloud).getMemory());
-
-                templateMatchesExistingTaskExcutionRole = StringUtils.equals(
-                        describeTaskDefinition.getTaskDefinition().getExecutionRoleArn(),
-                        ((ECSFargateCloud)cloud).getIamRole()
-                );
-                LOGGER.log(Level.INFO, "Match on task execution role: {0}", new Object[] {templateMatchesExistingTaskExcutionRole});
-                LOGGER.log(Level.FINE, "Match on task execution role: {0}; template={1}; last={2}", new Object[] {templateMatchesExistingTaskExcutionRole, ((ECSFargateCloud)cloud).getIamRole(), describeTaskDefinition.getTaskDefinition().getExecutionRoleArn()});
             } else {
                 templateMatchesCompatibility = describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities().contains(Compatibility.EC2.toString());
                 LOGGER.log(Level.INFO, "Match on compatibility: {0}", new Object[] {templateMatchesCompatibility});
@@ -301,7 +301,6 @@ class ECSService {
 
                 templateMatchesCpuSize = true;
                 templateMatchesMemorySize = true;
-                templateMatchesExistingTaskExcutionRole = true;
             }
         }
 
@@ -325,16 +324,18 @@ class ECSService {
                         .withMemory(((ECSFargateCloud)cloud).getMemory())
                         .withNetworkMode(NetworkMode.Awsvpc)
                         .withRequiresCompatibilities(Compatibility.FARGATE);
-                if(StringUtils.isNotEmpty(((ECSFargateCloud) cloud).getIamRole())){
-                    request.withExecutionRoleArn(((ECSFargateCloud) cloud).getIamRole());
-                }
             } else {
                 request.withRequiresCompatibilities(Compatibility.EC2);
+            }
+
+            if(StringUtils.isNotEmpty(cloud.getTaskExecutionRole())){
+                request.withExecutionRoleArn(cloud.getTaskExecutionRole());
             }
 
             if (template.getTaskrole() != null) {
                 request.withTaskRoleArn(template.getTaskrole());
             }
+
             final RegisterTaskDefinitionResult result = client.registerTaskDefinition(request);
             String taskDefinitionArn = result.getTaskDefinition().getTaskDefinitionArn();
             LOGGER.log(Level.FINE, "Created Task Definition {0}: {1}", new Object[] {taskDefinitionArn, request});
@@ -379,8 +380,10 @@ class ECSService {
                                     .withAssignPublicIp(AssignPublicIp.DISABLED)
                                     .withSubnets(((ECSFargateCloud)slave.getCloud()).getSubnetId())
                                     .withSecurityGroups(((ECSFargateCloud)slave.getCloud()).getSecurityGroup())
-                    )).withCluster(clusterArn);
+                    ));
         }
+
+        runTaskRequest.withCluster(clusterArn);
 
         final RunTaskResult runTaskResult = client.runTask(runTaskRequest);
 
