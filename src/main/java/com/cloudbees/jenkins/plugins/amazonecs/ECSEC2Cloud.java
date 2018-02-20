@@ -89,8 +89,8 @@ public class ECSEC2Cloud extends ECSCloud {
     /**
      * Start auto scaling ECS clusters as part of Jenkins initialization.
      *
-     * @throws InterruptedException
-     * @throws IOException
+     * @throws InterruptedException InterruptedException maybe thrown by Slave termination command
+     * @throws IOException IOException maybe thrown by Slave termination command
      */
 
     @Initializer(after = InitMilestone.JOB_LOADED)
@@ -176,7 +176,7 @@ public class ECSEC2Cloud extends ECSCloud {
             String regionName,
             String jenkinsUrl,
             int slaveTimoutInSeconds
-    ) throws InterruptedException {
+    ) {
         super(name);
         this.credentialsId = credentialsId;
         this.cluster = cluster;

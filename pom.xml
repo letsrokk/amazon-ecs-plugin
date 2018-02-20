@@ -79,7 +79,7 @@
 	</distributionManagement>
 
 	<dependencies>
-		<!-- https://mvnrepository.com/artifact/org.jenkins-ci.plugins/aws-java-sdk -->
+        <!-- https://mvnrepository.com/artifact/org.jenkins-ci.plugins/aws-java-sdk -->
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>aws-java-sdk</artifactId>

@@ -81,10 +81,9 @@ public class ECSFargateCloud extends ECSCloud {
     /**
      * Start auto scaling ECS clusters as part of Jenkins initialization.
      *
-     * @throws InterruptedException
-     * @throws IOException
+     * @throws InterruptedException InterruptedException maybe thrown by Slave termination command
+     * @throws IOException IOException maybe thrown by Slave termination command
      */
-
     @Initializer(after = InitMilestone.JOB_LOADED)
     public static void init() throws InterruptedException, IOException {
         // Remove all slaves that were persisted when Jenkins shutdown.

@@ -70,7 +70,7 @@ import jenkins.model.Jenkins;
  */
 class ECSService {
 
-    private static final Logger LOGGER = Logger.getLogger(ECSEC2Cloud.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
     private String credentialsId;
 
@@ -294,13 +294,6 @@ class ECSService {
 
                 templateMatchesCpuSize = describeTaskDefinition.getTaskDefinition().getCpu().equals(((ECSFargateCloud)cloud).getCpu());
                 templateMatchesMemorySize = describeTaskDefinition.getTaskDefinition().getMemory().equals(((ECSFargateCloud)cloud).getMemory());
-
-                templateMatchesExistingTaskExcutionRole = StringUtils.equals(
-                        describeTaskDefinition.getTaskDefinition().getExecutionRoleArn(),
-                        ((ECSFargateCloud)cloud).getIamRole()
-                );
-                LOGGER.log(Level.INFO, "Match on task execution role: {0}", new Object[] {templateMatchesExistingTaskExcutionRole});
-                LOGGER.log(Level.FINE, "Match on task execution role: {0}; template={1}; last={2}", new Object[] {templateMatchesExistingTaskExcutionRole, ((ECSFargateCloud)cloud).getIamRole(), describeTaskDefinition.getTaskDefinition().getExecutionRoleArn()});
             } else {
                 templateMatchesCompatibility = describeTaskDefinition.getTaskDefinition().getRequiresCompatibilities().contains(Compatibility.EC2.toString());
                 LOGGER.log(Level.INFO, "Match on compatibility: {0}", new Object[] {templateMatchesCompatibility});
@@ -308,7 +301,6 @@ class ECSService {
 
                 templateMatchesCpuSize = true;
                 templateMatchesMemorySize = true;
-                templateMatchesExistingTaskExcutionRole = true;
             }
         }
 
@@ -332,9 +324,6 @@ class ECSService {
                         .withMemory(((ECSFargateCloud)cloud).getMemory())
                         .withNetworkMode(NetworkMode.Awsvpc)
                         .withRequiresCompatibilities(Compatibility.FARGATE);
-                if(StringUtils.isNotEmpty(((ECSFargateCloud) cloud).getIamRole())){
-                    request.withExecutionRoleArn(((ECSFargateCloud) cloud).getIamRole());
-                }
             } else {
                 request.withRequiresCompatibilities(Compatibility.EC2);
             }
