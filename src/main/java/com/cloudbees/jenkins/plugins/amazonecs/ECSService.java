@@ -34,6 +34,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
@@ -407,8 +408,20 @@ class ECSService {
             ListContainerInstancesResult listContainerInstances = client.listContainerInstances(new ListContainerInstancesRequest().withCluster(clusterArn));
             if (!listContainerInstances.getContainerInstanceArns().isEmpty()) {
                 DescribeContainerInstancesResult containerInstancesDesc = client.describeContainerInstances(new DescribeContainerInstancesRequest().withContainerInstances(listContainerInstances.getContainerInstanceArns()).withCluster(clusterArn));
-                LOGGER.log(Level.INFO, "Found {0} instances", containerInstancesDesc.getContainerInstances().size());
-                for (ContainerInstance instance : containerInstancesDesc.getContainerInstances()) {
+
+                // Filter out DRAINING instances, because we can not create new tasks
+                List<ContainerInstance> activeContainerInstances =
+                        containerInstancesDesc.getContainerInstances().stream()
+                                .filter(containerInstance ->
+                                        !containerInstance.getStatus().equals(ContainerInstanceStatus.DRAINING.toString()))
+                                .collect(Collectors.toList());
+                LOGGER.log(Level.INFO, "Found {0} instances ({1} active, {2} draining)", new Object[] {
+                        containerInstancesDesc.getContainerInstances().size(),
+                        activeContainerInstances.size(),
+                        containerInstancesDesc.getContainerInstances().size() - activeContainerInstances.size()
+                });
+
+                for (ContainerInstance instance : activeContainerInstances) {
                     LOGGER.log(Level.INFO, "Resources found in instance {1}: {0}", new Object[] {instance.getRemainingResources(), instance.getContainerInstanceArn()});
                     Resource memoryResource = null;
                     Resource cpuResource = null;
@@ -429,7 +442,6 @@ class ECSService {
                     }
                 }
             }
-
 
             //TODO synchronize scale out calls to avoid unnecessary scaling
             // not enough free resources -> scale out
@@ -512,8 +524,9 @@ class ECSService {
         final AmazonECSClient ecsClient = getAmazonECSClient();
         do {
             final int activeEcsInstances = getEcsRunningCount(ecsClient, ecsClusterArn);
-            if (activeEcsInstances == expectedRunningCount) {
-                LOGGER.log(Level.INFO, "ECS cluster {0} now has {1} active instances", new Object[] {ecsClusterArn, activeEcsInstances});
+            final int drainingEcsInstances = getEcsDrainingCount(ecsClient, ecsClusterArn);
+            if (activeEcsInstances + drainingEcsInstances == expectedRunningCount) {
+                LOGGER.log(Level.INFO, "ECS cluster {0} now has {1} active and {2} draining instances", new Object[] {ecsClusterArn, activeEcsInstances, drainingEcsInstances});
                 return activeEcsInstances;
             } else {
                 LOGGER.log(Level.FINE, "Waiting for scale out of ECS cluster {0}", new Object[] {ecsClusterArn});
@@ -527,6 +540,13 @@ class ECSService {
         return ecsClient.listContainerInstances(new ListContainerInstancesRequest()
             .withCluster(ecsClusterArn)
             .withStatus(ContainerInstanceStatus.ACTIVE)
+        ).getContainerInstanceArns().size();
+    }
+
+    private int getEcsDrainingCount(final AmazonECSClient ecsClient, final String ecsClusterArn) {
+        return ecsClient.listContainerInstances(new ListContainerInstancesRequest()
+                .withCluster(ecsClusterArn)
+                .withStatus(ContainerInstanceStatus.DRAINING)
         ).getContainerInstanceArns().size();
     }
 }
