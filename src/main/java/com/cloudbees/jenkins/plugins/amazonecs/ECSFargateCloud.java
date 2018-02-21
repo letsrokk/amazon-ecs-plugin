@@ -342,7 +342,6 @@ public class ECSFargateCloud extends ECSCloud {
                 LOGGER.log(Level.INFO, "Created Slave: {0}", slave.getNodeName());
 
                 try {
-                    //TODO add role support
                     String taskDefinitionArn = getEcsService().registerTemplate(slave.getCloud(), template, cluster);
                     String taskArn = getEcsService().runEcsTask(slave, template, cluster, getDockerRunCommand(slave), taskDefinitionArn);
                     LOGGER.log(Level.INFO, "Slave {0} - Slave Task Started : {1}",
