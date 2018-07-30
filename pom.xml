@@ -50,7 +50,6 @@
 		<connection>scm:git:git://github.com/letsrokk/amazon-ecs-plugin.git</connection>
 		<developerConnection>scm:git:git@github.com:letsrokk/amazon-ecs-plugin.git</developerConnection>
 		<url>https://github.com/letsrokk/amazon-ecs-plugin</url>
-		<tag>amazon-ecs-2.1</tag>
 	</scm>
 
 	<repositories>
