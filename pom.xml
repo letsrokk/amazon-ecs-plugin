@@ -27,7 +27,7 @@
 
 	<groupId>com.cloudbees.jenkins.plugins</groupId>
 	<artifactId>amazon-ecs</artifactId>
-	<version>2.0-SNAPSHOT</version>
+	<version>2.1</version>
 	<packaging>hpi</packaging>
 	<name>Amazon EC2 Container Service plugin</name>
 	<description>Jenkins plugin to run dynamic slaves in a Amazon ECS/Docker environment</description>
@@ -50,7 +50,8 @@
 		<connection>scm:git:git://github.com/letsrokk/amazon-ecs-plugin.git</connection>
 		<developerConnection>scm:git:git@github.com:letsrokk/amazon-ecs-plugin.git</developerConnection>
 		<url>https://github.com/letsrokk/amazon-ecs-plugin</url>
-	</scm>
+	  <tag>amazon-ecs-2.1</tag>
+  </scm>
 
 	<repositories>
 		<repository>
