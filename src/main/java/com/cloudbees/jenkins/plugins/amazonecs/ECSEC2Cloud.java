@@ -114,18 +114,19 @@ public class ECSEC2Cloud extends ECSCloud {
 
     public static List<ECSSlave> getSlaves() {
         final Jenkins jenkins = Jenkins.getInstance();
-        final List<ECSSlave> ecsSlaves = new ArrayList<ECSSlave>();
+        final List<ECSSlave> ecsSlaves = new ArrayList<>();
         final List<Node> allSlaves = jenkins.getNodes();
         for (final Node n : allSlaves) {
             if (n instanceof ECSSlave) {
                 final ECSSlave ecsSlave = (ECSSlave)n;
+                ecsSlaves.add(ecsSlave);
             }
         }
         return ecsSlaves;
     }
 
     public static List<ECSSlave> getSlavesOfCloud(final ECSEC2Cloud ecsCloud) {
-        final List<ECSSlave> resultSlaves = new ArrayList<ECSSlave>();
+        final List<ECSSlave> resultSlaves = new ArrayList<>();
         for (final ECSSlave ecsSlave : getSlaves()) {
             if (ecsSlave.getCloud() == ecsCloud) {
                 resultSlaves.add(ecsSlave);
@@ -140,17 +141,9 @@ public class ECSEC2Cloud extends ECSCloud {
 
     private final List<ECSTaskTemplate> templates;
 
-    /**
-     * Id of the {@link AmazonWebServicesCredentials} used to connect to Amazon ECS
-     */
-    @Nonnull
-    private final String credentialsId;
-
-    private final String cluster;
-
     private String autoScalingGroup;
 
-    private transient ScheduledExecutorService scheduledExecutorService;
+    private transient ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 
     private String regionName;
 
@@ -164,22 +157,18 @@ public class ECSEC2Cloud extends ECSCloud {
 
     private int slaveTimoutInSeconds;
 
-    private ECSService ecsService;
-
     @DataBoundConstructor
     public ECSEC2Cloud(
-            String name,
+            @Nonnull String name,
             List<ECSTaskTemplate> templates,
             @Nonnull String credentialsId,
-            String cluster,
-            String autoScalingGroup,
-            String regionName,
+            @Nonnull String cluster,
+            @Nonnull String autoScalingGroup,
+            @Nonnull String regionName,
             String jenkinsUrl,
-            int slaveTimoutInSeconds
+            int slaveTimeoutInSeconds
     ) {
-        super(name);
-        this.credentialsId = credentialsId;
-        this.cluster = cluster;
+        super(name, credentialsId, regionName, cluster);
         this.autoScalingGroup = autoScalingGroup;
         this.templates = templates;
         this.regionName = regionName;
@@ -196,8 +185,8 @@ public class ECSEC2Cloud extends ECSCloud {
                 this.jenkinsUrl = "http://localhost:8080/";
         }
 
-        if (slaveTimoutInSeconds > 0) {
-            this.slaveTimoutInSeconds = slaveTimoutInSeconds;
+        if (slaveTimeoutInSeconds > 0) {
+            this.slaveTimoutInSeconds = slaveTimeoutInSeconds;
         } else {
             this.slaveTimoutInSeconds = DEFAULT_SLAVE_TIMEOUT;
         }
@@ -206,24 +195,14 @@ public class ECSEC2Cloud extends ECSCloud {
     }
 
     private void startAutoScaleIn() {
-        if (!StringUtils.isEmpty(autoScalingGroup) && !StringUtils.isEmpty(cluster)) {
-            if(scheduledExecutorService == null){
-                scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-                scheduledExecutorService.scheduleWithFixedDelay(
-                        new ECSClusterScaleIn(getEcsService(), cluster, autoScalingGroup),
-                        5,
-                        60,
-                        TimeUnit.SECONDS
-                );
-            }
+        if (!StringUtils.isEmpty(autoScalingGroup) && !StringUtils.isEmpty(getCluster())) {
+            scheduledExecutorService.scheduleWithFixedDelay(
+                    new ECSClusterScaleIn(getEcsService(), getCluster(), autoScalingGroup),
+                    5,
+                    60,
+                    TimeUnit.SECONDS
+            );
         }
-    }
-
-    synchronized ECSService getEcsService() {
-        if (ecsService == null) {
-            ecsService = new ECSService(credentialsId, regionName);
-        }
-        return ecsService;
     }
 
     AmazonECSClient getAmazonECSClient() {
@@ -234,24 +213,8 @@ public class ECSEC2Cloud extends ECSCloud {
         return templates;
     }
 
-    public String getCredentialsId() {
-        return credentialsId;
-    }
-
-    public String getCluster() {
-        return cluster;
-    }
-
     public String getAutoScalingGroup() {
         return autoScalingGroup;
-    }
-
-    public String getRegionName() {
-        return regionName;
-    }
-
-    public void setRegionName(String regionName) {
-        this.regionName = regionName;
     }
 
     public String getTunnel() {
@@ -290,7 +253,7 @@ public class ECSEC2Cloud extends ECSCloud {
         try {
 			LOGGER.log(Level.INFO, "Asked to provision {0} slave(s) for: {1}", new Object[]{excessWorkload, label});
 
-            List<NodeProvisioner.PlannedNode> r = new ArrayList<NodeProvisioner.PlannedNode>();
+            List<NodeProvisioner.PlannedNode> r = new ArrayList<>();
             final ECSTaskTemplate template = getTemplate(label);
 
             for (int i = 1; i <= excessWorkload; i++) {
@@ -317,15 +280,10 @@ public class ECSEC2Cloud extends ECSCloud {
         this.slaveTimoutInSeconds = slaveTimoutInSeconds;
     }
 
-    private class ProvisioningCallback implements Callable<Node> {
+    private class ProvisioningCallback extends ECSProvisioningCallback {
 
-        private final ECSTaskTemplate template;
-        @CheckForNull
-        private Label label;
-
-        public ProvisioningCallback(ECSTaskTemplate template, @Nullable Label label) {
-            this.template = template;
-            this.label = label;
+        ProvisioningCallback(ECSTaskTemplate template, @Nullable Label label) {
+            super(template, label);
         }
 
         @Override
@@ -335,134 +293,35 @@ public class ECSEC2Cloud extends ECSCloud {
             Date now = new Date();
             Date timeout = new Date(now.getTime() + 1000 * slaveTimoutInSeconds);
 
-            synchronized (cluster) {
-                getEcsService().waitForSufficientClusterResources(timeout, template, cluster, autoScalingGroup);
-
-                //TODO add label name to slave name
-                String uniq = Long.toHexString(System.nanoTime());
-                slave = new ECSSlave(ECSEC2Cloud.this, name + "-" + uniq, template.getRemoteFSRoot(),
-                    label == null ? null : label.toString(), new JNLPLauncher());
-                slave.setClusterArn(cluster);
-                Jenkins.getInstance().addNode(slave);
-//                while (Jenkins.getInstance().getNode(slave.getNodeName()) == null) {
-//                    Thread.sleep(1000);
-//                }
-                LOGGER.log(Level.INFO, "Created Slave: {0}", slave.getNodeName());
-
-                try {
-                    String taskDefinitionArn = getEcsService().registerTemplate(slave.getCloud(), template, cluster);
-                    String taskArn = getEcsService().runEcsTask(slave, template, cluster, getDockerRunCommand(slave), taskDefinitionArn);
-                    LOGGER.log(Level.INFO, "Slave {0} - Slave Task Started : {1}",
-                        new Object[] {slave.getNodeName(), taskArn});
-                    slave.setTaskArn(taskArn);
-                } catch (Exception ex) {
-                    LOGGER.log(Level.WARNING, "Slave {0} - Cannot create ECS Task", new Object[]{slave.getNodeName()});
-                    Jenkins.getInstance().removeNode(slave);
-                    throw ex;
-                }
+            synchronized (getCluster()) {
+                getEcsService().waitForSufficientClusterResources(timeout, template, getCluster(), autoScalingGroup);
             }
 
-            // now wait for slave to be online
-            while (timeout.after(new Date())) {
-                if (slave.getComputer() == null) {
-                    throw new IllegalStateException(
-                        "Slave " + slave.getNodeName() + " - Node was deleted, computer is null");
-                }
-                if (slave.getComputer().isOnline()) {
-                    break;
-                }
-                LOGGER.log(Level.FINE, "Waiting for slave {0} (ecs task {1}) to connect since {2}.",
-                    new Object[] {slave.getNodeName(), slave.getTaskArn(), now});
-                Thread.sleep(1000);
-            }
-            if (!slave.getComputer().isOnline()) {
-                final String msg = MessageFormat.format("ECS Slave {0} (ecs task {1}) not connected since {2} seconds",
-                    slave.getNodeName(), slave.getTaskArn(), now);
-                LOGGER.log(Level.WARNING, msg);
-                Jenkins.getInstance().removeNode(slave);
-                throw new IllegalStateException(msg);
-            }
+            String uniq = Long.toHexString(System.nanoTime());
+            slave = new ECSSlave(
+                    ECSEC2Cloud.this,
+                    name + "-" + uniq,
+                    template.getRemoteFSRoot(),
+                    label == null ? null : label.toString(),
+                    new JNLPLauncher()
+            );
+            slave.setClusterArn(getCluster());
+            Jenkins.getInstance().addNode(slave);
+            LOGGER.log(Level.INFO, "Created Slave: {0}", slave.getNodeName());
 
-            LOGGER.log(Level.INFO, "ECS Slave " + slave.getNodeName() + " (ecs task {0}) connected",
-        	    slave.getTaskArn());
+            runTask(getEcsService(), slave, getCluster(), jenkinsUrl, tunnel);
+            waitForSlaveToBeOnline(slave, now, timeout);
+
             return slave;
         }
-    }
 
-    private Collection<String> getDockerRunCommand(ECSSlave slave) {
-        Collection<String> command = new ArrayList<String>();
-        command.add("-url");
-        command.add(jenkinsUrl);
-        if (StringUtils.isNotBlank(tunnel)) {
-            command.add("-tunnel");
-            command.add(tunnel);
-        }
-        command.add(slave.getComputer().getJnlpMac());
-        command.add(slave.getComputer().getName());
-        return command;
     }
 
     @Extension
-    public static class DescriptorImpl extends Descriptor<Cloud> {
-
-        private static String CLOUD_NAME_PATTERN = "[a-z|A-Z|0-9|_|-]{1,127}";
-
-        @Override
-        public String getDisplayName() {
-            return Messages.displayNameEC2();
-        }
-
-        public ListBoxModel doFillCredentialsIdItems() {
-            return AWSCredentialsHelper.doFillCredentialsIdItems(Jenkins.getActiveInstance());
-        }
-
-        public ListBoxModel doFillRegionNameItems() {
-            final ListBoxModel options = new ListBoxModel();
-            final List<Region> allRegions = new ArrayList<Region>(RegionUtils.getRegions());
-            allRegions.sort(new Comparator<Region>() {
-
-                @Override
-                public int compare(final Region region1, final Region region2) {
-                    return region1.getName().compareTo(region2.getName());
-                }
-            });
-            for (Region region : allRegions) {
-                options.add(region.getName());
-            }
-            return options;
-        }
-
-        public ListBoxModel doFillClusterItems(@QueryParameter String credentialsId, @QueryParameter String regionName) {
-            ECSService ecsService = new ECSService(credentialsId, regionName);
-            try {
-                final AmazonECSClient client = ecsService.getAmazonECSClient();
-                final List<String> allClusterArns = new ArrayList<String>();
-                String lastToken = null;
-                do {
-                    final ListClustersResult result =
-                        client.listClusters(new ListClustersRequest().withNextToken(lastToken));
-                    allClusterArns.addAll(result.getClusterArns());
-                    lastToken = result.getNextToken();
-                } while (lastToken != null);
-                Collections.sort(allClusterArns);
-                final ListBoxModel options = new ListBoxModel();
-                for (String arn : allClusterArns) {
-                    options.add(arn);
-                }
-                return options;
-            } catch (AmazonClientException e) {
-                // missing credentials will throw an "AmazonClientException: Unable to load AWS credentials from any provider in the chain"
-                LOGGER.log(Level.INFO, "Exception searching clusters for credentials=" + credentialsId + ", regionName=" + regionName + ":" + e);
-                LOGGER.log(Level.FINE, "Exception searching clusters for credentials=" + credentialsId + ", regionName=" + regionName, e);
-                return new ListBoxModel();
-            } catch (RuntimeException e) {
-                LOGGER.log(Level.INFO, "Exception searching clusters for credentials=" + credentialsId + ", regionName=" + regionName, e);
-                return new ListBoxModel();
-            }
-        }
+    public static class DescriptorImpl extends ECSCloudDescriptor {
 
         public ListBoxModel doFillAutoScalingGroupItems(@QueryParameter String credentialsId, @QueryParameter String regionName) {
-            final ECSService ecsService = new ECSService(credentialsId, regionName);
+            final ECSService ecsService = AWSClientsManager.getEcsService(credentialsId, regionName);
             try {
                 final AmazonAutoScalingClient client = ecsService.getAmazonAutoScalingClient();
                 final List<AutoScalingGroup> allAutoScalingGroups = new ArrayList<AutoScalingGroup>();
@@ -495,28 +354,21 @@ public class ECSEC2Cloud extends ECSCloud {
             }
         }
 
-        public FormValidation doCheckName(@QueryParameter final String value) throws IOException, ServletException {
-            if (value.length() > 0 && value.length() <= 127 && value.matches(CLOUD_NAME_PATTERN)) {
-                return FormValidation.ok();
-            }
-            return FormValidation.error("Up to 127 letters (uppercase and lowercase), numbers, hyphens, and underscores are allowed");
-        }
-
     }
 
-    public static Region getRegion(String regionName) {
-        if (StringUtils.isNotEmpty(regionName)) {
-            return RegionUtils.getRegion(regionName);
-        } else {
-            return Region.getRegion(Regions.US_EAST_1);
-        }
-    }
-
-    public String getJenkinsUrl() {
-        return jenkinsUrl;
-    }
-
-    public void setJenkinsUrl(String jenkinsUrl) {
-        this.jenkinsUrl = jenkinsUrl;
-    }
+//    public static Region getRegion(String regionName) {
+//        if (StringUtils.isNotEmpty(regionName)) {
+//            return RegionUtils.getRegion(regionName);
+//        } else {
+//            return Region.getRegion(Regions.US_EAST_1);
+//        }
+//    }
+//
+//    public String getJenkinsUrl() {
+//        return jenkinsUrl;
+//    }
+//
+//    public void setJenkinsUrl(String jenkinsUrl) {
+//        this.jenkinsUrl = jenkinsUrl;
+//    }
 }
