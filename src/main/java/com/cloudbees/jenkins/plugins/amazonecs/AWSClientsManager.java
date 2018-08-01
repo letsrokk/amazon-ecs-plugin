@@ -120,7 +120,7 @@ public class AWSClientsManager {
     //
 
     private static ClientConfiguration getClientConfiguration() {
-        final ProxyConfiguration proxy = Jenkins.getInstance().proxy;
+        final ProxyConfiguration proxy = Jenkins.get().proxy;
         final ClientConfiguration clientConfiguration = new ClientConfiguration();
         if (proxy != null) {
             clientConfiguration.setProxyHost(proxy.name);
@@ -133,7 +133,7 @@ public class AWSClientsManager {
 
     @CheckForNull
     private static AmazonWebServicesCredentials getCredentials(@Nullable String credentialsId) {
-        return AWSCredentialsHelper.getCredentials(credentialsId, Jenkins.getActiveInstance());
+        return AWSCredentialsHelper.getCredentials(credentialsId, Jenkins.get());
     }
 
     private static void logAwsKey(final AmazonWebServicesCredentials credentials, final String awsServiceName) {

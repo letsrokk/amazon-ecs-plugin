@@ -14,8 +14,6 @@ import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.servlet.ServletException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -30,19 +28,13 @@ public class ECSCloudDescriptor extends Descriptor<Cloud> {
     private static String CLOUD_NAME_PATTERN = "[a-z|A-Z|0-9|_|-]{1,127}";
 
     public ListBoxModel doFillCredentialsIdItems() {
-        return AWSCredentialsHelper.doFillCredentialsIdItems(Jenkins.getActiveInstance());
+        return AWSCredentialsHelper.doFillCredentialsIdItems(Jenkins.get());
     }
 
     public ListBoxModel doFillRegionNameItems() {
         final ListBoxModel options = new ListBoxModel();
-        final List<Region> allRegions = new ArrayList<Region>(RegionUtils.getRegions());
-        allRegions.sort(new Comparator<Region>() {
-
-            @Override
-            public int compare(final Region region1, final Region region2) {
-                return region1.getName().compareTo(region2.getName());
-            }
-        });
+        final List<Region> allRegions = new ArrayList<>(RegionUtils.getRegions());
+        allRegions.sort(Comparator.comparing(Region::getName));
         for (Region region : allRegions) {
             options.add(region.getName());
         }
@@ -53,7 +45,7 @@ public class ECSCloudDescriptor extends Descriptor<Cloud> {
         final ECSService ecsService = AWSClientsManager.getEcsService(credentialsId, regionName);
         try {
             final AmazonECSClient client = ecsService.getAmazonECSClient();
-            final List<String> allClusterArns = new ArrayList<String>();
+            final List<String> allClusterArns = new ArrayList<>();
             String lastToken = null;
             do {
                 final ListClustersResult result =
@@ -78,7 +70,7 @@ public class ECSCloudDescriptor extends Descriptor<Cloud> {
         }
     }
 
-    public FormValidation doCheckName(@QueryParameter final String value) throws IOException, ServletException {
+    public FormValidation doCheckName(@QueryParameter final String value) {
         if (value.length() > 0 && value.length() <= 127 && value.matches(CLOUD_NAME_PATTERN)) {
             return FormValidation.ok();
         }

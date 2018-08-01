@@ -67,13 +67,9 @@ public class ECSEC2Cloud extends ECSCloud {
 
     /**
      * Start auto scaling ECS clusters as part of Jenkins initialization.
-     *
-     * @throws InterruptedException InterruptedException maybe thrown by Slave termination command
-     * @throws IOException          IOException maybe thrown by Slave termination command
      */
-
     @Initializer(after = InitMilestone.JOB_LOADED)
-    public static void init() throws InterruptedException, IOException {
+    public static void init() {
         // Remove all slaves that were persisted when Jenkins shutdown.
         getECSSlaves().stream()
                 .filter(slave -> slave.getCloud() instanceof ECSEC2Cloud)
@@ -86,7 +82,7 @@ public class ECSEC2Cloud extends ECSCloud {
                     }
                 });
 
-        final Jenkins jenkins = Jenkins.getInstance();
+        final Jenkins jenkins = Jenkins.get();
         Executors.newSingleThreadScheduledExecutor().scheduleWithFixedDelay(() -> {
             // Start auto scale in
             for (final Cloud c : jenkins.clouds) {
@@ -258,10 +254,10 @@ public class ECSEC2Cloud extends ECSCloud {
                     name + "-" + uniq,
                     template.getRemoteFSRoot(),
                     label == null ? null : label.toString(),
-                    new JNLPLauncher()
+                    new JNLPLauncher(true)
             );
             slave.setClusterArn(getCluster());
-            Jenkins.getInstance().addNode(slave);
+            Jenkins.get().addNode(slave);
             LOGGER.log(Level.INFO, "Created Slave: {0}", slave.getNodeName());
 
             runTask(getEcsService(), slave, getCluster(), getJenkinsUrl(), getTunnel());

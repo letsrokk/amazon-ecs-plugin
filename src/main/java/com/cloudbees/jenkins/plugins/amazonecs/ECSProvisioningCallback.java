@@ -38,13 +38,13 @@ public abstract class ECSProvisioningCallback implements Callable<Node> {
             slave.setTaskArn(taskArn);
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, String.format("Slave %s - Cannot create ECS Task", slave.getNodeName()), ex);
-            Jenkins.getInstance().removeNode(slave);
+            Jenkins.get().removeNode(slave);
             throw ex;
         }
     }
 
     private Collection<String> getDockerRunCommand(ECSSlave slave, String jenkinsUrl, String tunnel) {
-        Collection<String> command = new ArrayList<String>();
+        Collection<String> command = new ArrayList<>();
         command.add("-url");
         command.add(jenkinsUrl);
         if (StringUtils.isNotBlank(tunnel)) {
@@ -73,7 +73,7 @@ public abstract class ECSProvisioningCallback implements Callable<Node> {
             final String msg = MessageFormat.format("ECS Slave {0} (ecs task {1}) not connected since {2} seconds",
                 slave.getNodeName(), slave.getTaskArn(), now);
             LOGGER.log(Level.WARNING, msg);
-            Jenkins.getInstance().removeNode(slave);
+            Jenkins.get().removeNode(slave);
             throw new IllegalStateException(msg);
         }
 

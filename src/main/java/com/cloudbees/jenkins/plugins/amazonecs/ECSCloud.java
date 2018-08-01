@@ -4,9 +4,11 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
 import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
-import hudson.model.Hudson;
+import hudson.model.Computer;
+import hudson.model.Label;
 import hudson.model.Node;
 import hudson.slaves.Cloud;
+import hudson.slaves.NodeProvisioner;
 import jenkins.model.Jenkins;
 import jenkins.model.JenkinsLocationConfiguration;
 import org.apache.commons.lang.StringUtils;
@@ -14,9 +16,12 @@ import org.kohsuke.stapler.DataBoundSetter;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 abstract class ECSCloud extends Cloud {
@@ -60,12 +65,7 @@ abstract class ECSCloud extends Cloud {
         if (StringUtils.isNotBlank(jenkinsUrl)) {
             this.jenkinsUrl = jenkinsUrl;
         } else {
-            Optional<JenkinsLocationConfiguration> jenkinsLocationConfiguration =
-                    Optional.ofNullable(JenkinsLocationConfiguration.get());
-            if(jenkinsLocationConfiguration.isPresent())
-                this.jenkinsUrl = jenkinsLocationConfiguration.get().getUrl();
-            else
-                this.jenkinsUrl = "http://localhost:8080/";
+            this.jenkinsUrl = JenkinsLocationConfiguration.get().getUrl();
         }
 
         this.templates = templates;
@@ -109,14 +109,14 @@ abstract class ECSCloud extends Cloud {
     @DataBoundSetter
     abstract void setSlaveTimeoutInSeconds(int slaveTimeoutInSeconds);
 
-    abstract void deleteTask(String taskArn, String clusterArn);
-
-    /*
-    Common methods
+    /**
+     *  Common methods
      */
 
+    abstract void deleteTask(String taskArn, String clusterArn);
+
     public static List<ECSSlave> getECSSlaves() {
-        final Jenkins jenkins = Jenkins.getInstance();
+        final Jenkins jenkins = Jenkins.get();
         final List<ECSSlave> ecsSlaves = new ArrayList<>();
         final List<Node> allSlaves = jenkins.getNodes();
         for (final Node n : allSlaves) {
@@ -141,6 +141,6 @@ abstract class ECSCloud extends Cloud {
     }
 
     public static ECSCloud get() {
-        return Hudson.getInstance().clouds.get(ECSCloud.class);
+        return Jenkins.get().clouds.get(ECSCloud.class);
     }
 }
