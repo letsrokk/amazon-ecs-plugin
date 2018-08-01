@@ -533,7 +533,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
             ListBoxModel iamRoles = new ListBoxModel();
             iamRoles.add("","");
 
-            final ECSService ecsService = new ECSService(credentialsId, regionName);
+            final ECSService ecsService = AWSClientsManager.getEcsService(credentialsId, regionName);
             try{
                 AmazonIdentityManagementClient client = ecsService.getAmazonIAMClient();
                 ListRolesResult availableRoles = client.listRoles();

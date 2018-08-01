@@ -74,121 +74,28 @@ class ECSService {
     private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
     private String credentialsId;
-
     private String regionName;
 
-    public ECSService(String credentialsId, String regionName) {
+    ECSService(String credentialsId, String regionName) {
         super();
         this.credentialsId = credentialsId;
         this.regionName = regionName;
     }
 
-    ClientConfiguration getClientConfiguration() {
-        final ProxyConfiguration proxy = Jenkins.getInstance().proxy;
-        final ClientConfiguration clientConfiguration = new ClientConfiguration();
-        if (proxy != null) {
-            clientConfiguration.setProxyHost(proxy.name);
-            clientConfiguration.setProxyPort(proxy.port);
-            clientConfiguration.setProxyUsername(proxy.getUserName());
-            clientConfiguration.setProxyPassword(proxy.getPassword());
-        }
-        return clientConfiguration;
-    }
-
-    private void logAwsKey(final AmazonWebServicesCredentials credentials, final String awsServiceName) {
-        if (credentials != null && LOGGER.isLoggable(Level.FINE)) {
-            final String awsAccessKeyId = credentials.getCredentials().getAWSAccessKeyId();
-            final String obfuscatedAccessKeyId = StringUtils.left(awsAccessKeyId, 4)
-                + StringUtils.repeat("*", awsAccessKeyId.length() - 2 * 4) + StringUtils.right(awsAccessKeyId, 4);
-            LOGGER.log(Level.FINE, "Connect to Amazon {0} with IAM Access Key {1}",
-                new Object[] {awsServiceName, obfuscatedAccessKeyId});
-        }
-    }
-
     AmazonIdentityManagementClient getAmazonIAMClient() {
-        final AmazonIdentityManagementClient client;
-
-        final ClientConfiguration clientConfiguration = getClientConfiguration();
-        final AmazonWebServicesCredentials credentials = getCredentials(credentialsId);
-        if (credentials == null) {
-            // no credentials provided, rely on com.amazonaws.auth.DefaultAWSCredentialsProviderChain
-            // to use IAM Role define at the EC2 instance level ...
-            client = new AmazonIdentityManagementClient(clientConfiguration);
-        } else {
-            logAwsKey(credentials, "IAM");
-            client = new AmazonIdentityManagementClient(credentials, clientConfiguration);
-        }
-        client.setRegion(getRegion(regionName));
-        LOGGER.log(Level.FINE, "Selected Region: {0}", regionName);
-        return client;
+        return AWSClientsManager.getAmazonIAMClient(credentialsId, regionName);
     }
 
     AmazonECSClient getAmazonECSClient() {
-        final AmazonECSClient client;
-        // = AmazonECSClientBuilder.standard().withClientConfiguration(getClientConfiguration())
-        // .withCredentials(getCredentials(credentialsId)).build();
-        // client.setRegion(getRegion(regionName));
-
-        final ClientConfiguration clientConfiguration = getClientConfiguration();
-        final AmazonWebServicesCredentials credentials = getCredentials(credentialsId);
-        if (credentials == null) {
-            // no credentials provided, rely on com.amazonaws.auth.DefaultAWSCredentialsProviderChain
-            // to use IAM Role define at the EC2 instance level ...
-            client = new AmazonECSClient(clientConfiguration);
-        } else {
-            logAwsKey(credentials, "ECS");
-            client = new AmazonECSClient(credentials, clientConfiguration);
-        }
-        client.setRegion(getRegion(regionName));
-        LOGGER.log(Level.FINE, "Selected Region: {0}", regionName);
-        return client;
+        return AWSClientsManager.getAmazonECSClient(credentialsId, regionName);
     }
 
     AmazonAutoScalingClient getAmazonAutoScalingClient() {
-        final AmazonAutoScalingClient client;
-        final ClientConfiguration clientConfiguration = getClientConfiguration();
-        final AmazonWebServicesCredentials credentials = getCredentials(credentialsId);
-        if (credentials == null) {
-            // no credentials provided, rely on com.amazonaws.auth.DefaultAWSCredentialsProviderChain
-            // to use IAM Role define at the EC2 instance level ...
-            client = new AmazonAutoScalingClient(clientConfiguration);
-        } else {
-            logAwsKey(credentials, "AutoScaling");
-            client = new AmazonAutoScalingClient(credentials, clientConfiguration);
-        }
-        client.setRegion(getRegion(regionName));
-        LOGGER.log(Level.FINE, "Selected Region: {0}", regionName);
-        return client;
+        return AWSClientsManager.getAmazonAutoScalingClient(credentialsId, regionName);
     }
 
     AmazonEC2Client getAmazonEC2Client() {
-        final AmazonEC2Client client;
-        final ClientConfiguration clientConfiguration = getClientConfiguration();
-        final AmazonWebServicesCredentials credentials = getCredentials(credentialsId);
-        if (credentials == null) {
-            // no credentials provided, rely on com.amazonaws.auth.DefaultAWSCredentialsProviderChain
-            // to use IAM Role define at the EC2 instance level ...
-            client = new AmazonEC2Client(clientConfiguration);
-        } else {
-            logAwsKey(credentials, "EC2");
-            client = new AmazonEC2Client(credentials, clientConfiguration);
-        }
-        client.setRegion(getRegion(regionName));
-        LOGGER.log(Level.FINE, "Selected Region: {0}", regionName);
-        return client;
-    }
-
-    Region getRegion(String regionName) {
-        if (StringUtils.isNotEmpty(regionName)) {
-            return RegionUtils.getRegion(regionName);
-        } else {
-            return Region.getRegion(Regions.US_EAST_1);
-        }
-    }
-
-    @CheckForNull
-    private AmazonWebServicesCredentials getCredentials(@Nullable String credentialsId) {
-        return AWSCredentialsHelper.getCredentials(credentialsId, Jenkins.getActiveInstance());
+        return AWSClientsManager.getAmazonEC2Client(credentialsId, regionName);
     }
 
     void deleteTask(String taskArn, String clusterArn) {
@@ -525,7 +432,7 @@ class ECSService {
         do {
             final int activeEcsInstances = getEcsRunningCount(ecsClient, ecsClusterArn);
             final int drainingEcsInstances = getEcsDrainingCount(ecsClient, ecsClusterArn);
-            if (activeEcsInstances + drainingEcsInstances == expectedRunningCount) {
+            if (activeEcsInstances + drainingEcsInstances >= expectedRunningCount) {
                 LOGGER.log(Level.INFO, "ECS cluster {0} now has {1} active and {2} draining instances", new Object[] {ecsClusterArn, activeEcsInstances, drainingEcsInstances});
                 return activeEcsInstances;
             } else {

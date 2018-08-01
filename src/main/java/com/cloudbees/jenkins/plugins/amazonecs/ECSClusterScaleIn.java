@@ -1,16 +1,10 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.annotation.Nonnull;
-
-import org.apache.commons.lang.StringUtils;
 
 import com.amazonaws.services.autoscaling.AmazonAutoScalingClient;
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
@@ -36,15 +30,18 @@ public class ECSClusterScaleIn implements Runnable {
 
     private final int idleWhenSecondsUntilNextHour = 240;
 
-    @Nonnull
     private final String ecsClusterArn;
-    @Nonnull
     private final String autoScalingGroupName;
+
     private final AmazonAutoScalingClient autoScalingClient;
     private final AmazonECSClient ecsClient;
     private final AmazonEC2Client ec2Client;
     
-    public ECSClusterScaleIn(final ECSService ecsService, final String ecsClusterArn, final String autoScalingGroupName) {
+    ECSClusterScaleIn(
+            @Nonnull final ECSService ecsService,
+            @Nonnull final String ecsClusterArn,
+            @Nonnull final String autoScalingGroupName
+    ) {
         this.ecsClusterArn = ecsClusterArn;
         this.autoScalingGroupName = autoScalingGroupName;
 
@@ -56,7 +53,7 @@ public class ECSClusterScaleIn implements Runnable {
 
     private AutoScalingGroup getAutoScalingGroup() {
         // fetch auto scaling group
-        final Collection<String> autoScalingGroupNames = new ArrayList<String>();
+        final Collection<String> autoScalingGroupNames = new ArrayList<>();
         autoScalingGroupNames.add(autoScalingGroupName);
         final List<AutoScalingGroup> autoScalingGroups = autoScalingClient.describeAutoScalingGroups(new DescribeAutoScalingGroupsRequest().withAutoScalingGroupNames(autoScalingGroupNames)).getAutoScalingGroups();
         if (autoScalingGroups.size() >= 1) {
@@ -70,10 +67,6 @@ public class ECSClusterScaleIn implements Runnable {
         autoScalingClient.setInstanceProtection(new SetInstanceProtectionRequest().withAutoScalingGroupName(autoScalingGroupName).withInstanceIds(instanceId).withProtectedFromScaleIn(protectFromScaleIn));
     }
 
-    // private void protect(final String instanceId) {
-    // protectFromScaleIn(instanceId, true);
-    // }
-
     private void unprotect(final String instanceId) {
         protectInstanceFromScaleIn(instanceId, false);
     }
@@ -83,21 +76,11 @@ public class ECSClusterScaleIn implements Runnable {
         autoScalingClient.terminateInstanceInAutoScalingGroup(new TerminateInstanceInAutoScalingGroupRequest().withInstanceId(instanceId).withShouldDecrementDesiredCapacity(true));
     }
 
-    // private void grow(final int amount) {
-    // final AutoScalingGroup autoScalingGroup = getAutoScalingGroup();
-    // final int newDesiredCapacity = autoScalingGroup.getDesiredCapacity() + amount;
-    // if (newDesiredCapacity <= autoScalingGroup.getMaxSize()) {
-    // autoScalingClient
-    // .setDesiredCapacity(new SetDesiredCapacityRequest().withAutoScalingGroupName(autoScalingGroupName)
-    // .withHonorCooldown(true).withDesiredCapacity(newDesiredCapacity));
-    // }
-    // }
-
     private List<String> getInstanceArns(final ContainerInstanceStatus status) {
-        final List<String> instanceArns = new ArrayList<String>();
         ListContainerInstancesRequest request = new ListContainerInstancesRequest().withCluster(ecsClusterArn).withStatus(status);
         ListContainerInstancesResult result = ecsClient.listContainerInstances(request);
-        instanceArns.addAll(result.getContainerInstanceArns());
+
+        final List<String> instanceArns = new ArrayList<>(result.getContainerInstanceArns());
         String nextToken = result.getNextToken();
         while (nextToken != null) {
             request = new ListContainerInstancesRequest().withCluster(ecsClusterArn).withStatus(status).withNextToken(nextToken);
@@ -116,14 +99,6 @@ public class ECSClusterScaleIn implements Runnable {
         return Collections.emptyList();
     }
 
-    // private List<String> getInstanceIds(final ContainerInstanceStatus status) {
-    // final List<String> result = new ArrayList<String>();
-    // for (final ContainerInstance instance : describeInstances(status)) {
-    // result.add(instance.getEc2InstanceId());
-    // }
-    // return result;
-    // }
-
     public void drain(final String instanceArn) {
         ecsClient.updateContainerInstancesState(new UpdateContainerInstancesStateRequest().withCluster(ecsClusterArn).withStatus(ContainerInstanceStatus.DRAINING).withContainerInstances(instanceArn));
     }
@@ -131,13 +106,19 @@ public class ECSClusterScaleIn implements Runnable {
     @Override
     public void run() {
         try {
-            final AutoScalingGroup autoScalingGroup = getAutoScalingGroup();
-            LOGGER.log(Level.INFO, "Enabled auto scaling of ECS cluster {0} (using auto scaling group {1})", new Object[]{ecsClusterArn, autoScalingGroupName});
+            LOGGER.log(Level.INFO, "Scale In check for ECS cluster {0} (using auto scaling group {1})", new Object[]{ecsClusterArn, autoScalingGroupName});
 
             // automatically protect new instances from scaling in
-            if (!autoScalingGroup.isNewInstancesProtectedFromScaleIn()) {
-                autoScalingClient.updateAutoScalingGroup(new UpdateAutoScalingGroupRequest().withAutoScalingGroupName(autoScalingGroup.getAutoScalingGroupName()).withNewInstancesProtectedFromScaleIn(true));
-            }
+            Optional.ofNullable(getAutoScalingGroup()).ifPresent(group -> {
+                if (!group.isNewInstancesProtectedFromScaleIn()) {
+                    LOGGER.log(Level.INFO, "Set termination protection for instances in ECS cluster {0} (using auto scaling group {1})", new Object[]{ecsClusterArn, autoScalingGroupName});
+                    autoScalingClient.updateAutoScalingGroup(
+                            new UpdateAutoScalingGroupRequest()
+                                    .withAutoScalingGroupName(group.getAutoScalingGroupName())
+                                    .withNewInstancesProtectedFromScaleIn(true)
+                    );
+                }
+            });
 
             // remove idle DRAINING jenkins slaves (=slaves put in DRAINING state in previous iteration of this loop)
             for (final ContainerInstance containerInstance : describeInstances(ContainerInstanceStatus.DRAINING)) {
@@ -170,10 +151,11 @@ public class ECSClusterScaleIn implements Runnable {
                 } else {
                     reasonToDrain = null;
                 }
-                if (StringUtils.isNotEmpty(reasonToDrain)) {
-                    LOGGER.log(Level.INFO, "Draining ECS cluster {0} instance {1} because {2}", new Object[]{ecsClusterArn, instanceId, reasonToDrain});
-                    drain(instanceArn);
-                }
+                Optional.ofNullable(reasonToDrain)
+                        .ifPresent(reason -> {
+                            LOGGER.log(Level.INFO, "Draining ECS cluster {0} instance {1} because {2}", new Object[]{ecsClusterArn, instanceId, reasonToDrain});
+                            drain(instanceArn);
+                        });
             }
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, e.getMessage(), e);

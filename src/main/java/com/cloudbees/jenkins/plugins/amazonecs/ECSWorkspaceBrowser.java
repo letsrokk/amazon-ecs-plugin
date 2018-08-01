@@ -32,11 +32,11 @@ public class ECSWorkspaceBrowser extends WorkspaceBrowser {
         final String jobName = job.getName();
         if (job instanceof AbstractProject) {
             final String assignedLabel = ((AbstractProject)job).getAssignedLabelString();
-            final ECSEC2Cloud ecsCloud = ECSEC2Cloud.get();
+            final ECSCloud ecsCloud = ECSCloud.get();
             if (ecsCloud == null) {
                 LOGGER.info("No ECS cloud found.");
             } else {
-                LOGGER.info("Found ecs cloud: " + ecsCloud.name);
+                LOGGER.info("Found ECS cloud: " + ecsCloud.name);
                 final List<ECSTaskTemplate> templates = ecsCloud.getTemplates();
                 for (final ECSTaskTemplate template : templates) {
                     LOGGER.info(String.format("Checking ECS template %s with FS root %s", template.getLabel(),
