@@ -26,11 +26,8 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.services.ec2.AmazonEC2Client;
+import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.*;
-import com.amazonaws.services.ecs.AmazonECSClient;
-import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
-import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
 import hudson.Extension;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
@@ -44,7 +41,6 @@ import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -72,12 +68,9 @@ public class ECSFargateCloud extends ECSCloud {
 
     /**
      * Start auto scaling ECS clusters as part of Jenkins initialization.
-     *
-     * @throws InterruptedException InterruptedException maybe thrown by Slave termination command
-     * @throws IOException IOException maybe thrown by Slave termination command
      */
     @Initializer(after = InitMilestone.JOB_LOADED)
-    public static void init() throws InterruptedException, IOException {
+    public static void init() {
         // Remove all slaves that were persisted when Jenkins shutdown.
         getECSSlaves().stream()
                 .filter(slave -> slave.getCloud() instanceof ECSFargateCloud)
@@ -214,7 +207,7 @@ public class ECSFargateCloud extends ECSCloud {
         try {
 			LOGGER.log(Level.INFO, "Asked to provision {0} slave(s) for: {1}", new Object[]{excessWorkload, label});
 
-            List<NodeProvisioner.PlannedNode> r = new ArrayList<NodeProvisioner.PlannedNode>();
+            List<NodeProvisioner.PlannedNode> r = new ArrayList<>();
             final ECSTaskTemplate template = getTemplate(label);
 
             for (int i = 1; i <= excessWorkload; i++) {
@@ -252,10 +245,10 @@ public class ECSFargateCloud extends ECSCloud {
                     name + "-" + uniq,
                     template.getRemoteFSRoot(),
                     label == null ? null : label.toString(),
-                    new JNLPLauncher()
+                    new JNLPLauncher(true)
             );
             slave.setClusterArn(getCluster());
-            Jenkins.getInstance().addNode(slave);
+            Jenkins.get().addNode(slave);
             LOGGER.log(Level.INFO, "Created Slave: {0}", slave.getNodeName());
 
             runTask(getEcsService(), slave, getCluster(), jenkinsUrl, tunnel);
@@ -276,7 +269,7 @@ public class ECSFargateCloud extends ECSCloud {
         public ListBoxModel doFillVpcIdItems(@QueryParameter String credentialsId, @QueryParameter String regionName){
             final ECSService ecsService = AWSClientsManager.getEcsService(credentialsId, regionName);
             try{
-                final AmazonEC2Client client = ecsService.getAmazonEC2Client();
+                final AmazonEC2 client = ecsService.getAmazonEC2Client();
                 DescribeVpcsResult result = client.describeVpcs();
                 final ListBoxModel options = new ListBoxModel();
                 for (Vpc vpc : result.getVpcs()) {
@@ -306,7 +299,7 @@ public class ECSFargateCloud extends ECSCloud {
 
             final ECSService ecsService = AWSClientsManager.getEcsService(credentialsId, regionName);
             try{
-                final AmazonEC2Client client = ecsService.getAmazonEC2Client();
+                final AmazonEC2 client = ecsService.getAmazonEC2Client();
 
                 DescribeSubnetsRequest describeSubnetsRequest = new DescribeSubnetsRequest().withFilters(new Filter().withName("vpc-id").withValues(vpcId));
                 DescribeSubnetsResult describeSubnetsResult = client.describeSubnets(describeSubnetsRequest);
@@ -314,12 +307,12 @@ public class ECSFargateCloud extends ECSCloud {
                 final ListBoxModel options = new ListBoxModel();
                 for (Subnet subnet : describeSubnetsResult.getSubnets()) {
                     final String subnetId = subnet.getSubnetId();
-                    final String subnetname = subnet.getTags().stream()
+                    final String subnetName = subnet.getTags().stream()
                             .filter(tag -> tag.getKey().equals("Name"))
                             .findAny()
                             .map(tag -> " | " + tag.getValue())
                             .orElse("");
-                    options.add(subnetId + " | " + subnet.getVpcId() + subnetname, subnetId);
+                    options.add(subnetId + " | " + subnet.getVpcId() + subnetName, subnetId);
                 }
                 return options;
             } catch (AmazonClientException e) {
@@ -339,7 +332,7 @@ public class ECSFargateCloud extends ECSCloud {
 
             final ECSService ecsService = AWSClientsManager.getEcsService(credentialsId, regionName);
             try{
-                final AmazonEC2Client client = ecsService.getAmazonEC2Client();
+                final AmazonEC2 client = ecsService.getAmazonEC2Client();
 
                 DescribeSecurityGroupsRequest describeSecurityGroupsRequest = new DescribeSecurityGroupsRequest()
                         .withFilters(new Filter().withName("vpc-id").withValues(vpcId));
