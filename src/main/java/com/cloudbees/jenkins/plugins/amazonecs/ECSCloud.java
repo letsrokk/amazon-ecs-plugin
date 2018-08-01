@@ -4,11 +4,8 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
 import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
-import hudson.model.Computer;
-import hudson.model.Label;
 import hudson.model.Node;
 import hudson.slaves.Cloud;
-import hudson.slaves.NodeProvisioner;
 import jenkins.model.Jenkins;
 import jenkins.model.JenkinsLocationConfiguration;
 import org.apache.commons.lang.StringUtils;
@@ -16,12 +13,8 @@ import org.kohsuke.stapler.DataBoundSetter;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 abstract class ECSCloud extends Cloud {
