@@ -36,32 +36,21 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nullable;
-
+import com.amazonaws.services.autoscaling.AmazonAutoScaling;
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.*;
-import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.RegionUtils;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.autoscaling.AmazonAutoScalingClient;
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest;
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult;
 import com.amazonaws.services.autoscaling.model.Instance;
 import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest;
-import com.amazonaws.services.ec2.AmazonEC2Client;
-import com.amazonaws.services.ecs.AmazonECSClient;
-import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
-import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
 
 import hudson.AbortException;
-import hudson.ProxyConfiguration;
-import jenkins.model.Jenkins;
 
 /**
  * Encapsulates interactions with Amazon ECS.
@@ -82,24 +71,24 @@ class ECSService {
         this.regionName = regionName;
     }
 
-    AmazonIdentityManagementClient getAmazonIAMClient() {
+    AmazonIdentityManagement getAmazonIAMClient() {
         return AWSClientsManager.getAmazonIAMClient(credentialsId, regionName);
     }
 
-    AmazonECSClient getAmazonECSClient() {
+    AmazonECS getAmazonECSClient() {
         return AWSClientsManager.getAmazonECSClient(credentialsId, regionName);
     }
 
-    AmazonAutoScalingClient getAmazonAutoScalingClient() {
+    AmazonAutoScaling getAmazonAutoScalingClient() {
         return AWSClientsManager.getAmazonAutoScalingClient(credentialsId, regionName);
     }
 
-    AmazonEC2Client getAmazonEC2Client() {
+    AmazonEC2 getAmazonEC2Client() {
         return AWSClientsManager.getAmazonEC2Client(credentialsId, regionName);
     }
 
     void deleteTask(String taskArn, String clusterArn) {
-        final AmazonECSClient client = getAmazonECSClient();
+        final AmazonECS client = getAmazonECSClient();
 
         LOGGER.log(Level.INFO, "Delete ECS Slave task: {0}", taskArn);
         try {
@@ -114,7 +103,7 @@ class ECSService {
      * If no, register a new task definition with desired parameters and return the new ARN.
      */
     String registerTemplate(final ECSCloud cloud, final ECSTaskTemplate template, String clusterArn) {
-        final AmazonECSClient client = getAmazonECSClient();
+        final AmazonECS client = getAmazonECSClient();
 
         String familyName = fullQualifiedTemplateName(cloud, template);
         final ContainerDefinition def = new ContainerDefinition()
@@ -256,8 +245,8 @@ class ECSService {
         return cloud.getDisplayName().replaceAll("\\s+", "") + '-' + template.getTemplateName();
     }
 
-    String runEcsTask(final ECSSlave slave, final ECSTaskTemplate template, String clusterArn, Collection<String> command, String taskDefinitionArn) throws IOException, AbortException {
-        AmazonECSClient client = getAmazonECSClient();
+    String runEcsTask(final ECSSlave slave, final ECSTaskTemplate template, String clusterArn, Collection<String> command, String taskDefinitionArn) throws IOException {
+        AmazonECS client = getAmazonECSClient();
         slave.setTaskDefinitonArn(taskDefinitionArn);
 
         KeyValuePair envNodeName = new KeyValuePair();
@@ -306,8 +295,8 @@ class ECSService {
     }
 
     void waitForSufficientClusterResources(Date timeout, ECSTaskTemplate template, String clusterArn, String asgName) throws InterruptedException, AbortException {
-        AmazonECSClient client = getAmazonECSClient();
-        AmazonAutoScalingClient autoScalingClient = null;
+        AmazonECS client = getAmazonECSClient();
+        AmazonAutoScaling autoScalingClient = null;
 
         boolean hasEnoughResources = false;
         WHILE:
@@ -396,7 +385,7 @@ class ECSService {
 
     private int waitForAutoScalingScaleOut(final Date timeout, final String autoScalingGroupName, final int desiredCapacity)
         throws InterruptedException {
-        final AmazonAutoScalingClient autoScalingClient = getAmazonAutoScalingClient();
+        final AmazonAutoScaling autoScalingClient = getAmazonAutoScalingClient();
         LOGGER.log(Level.INFO, "Increasing size of auto scaling group {0} to {1} instances", new Object[] {autoScalingGroupName, desiredCapacity});
         autoScalingClient.updateAutoScalingGroup(new UpdateAutoScalingGroupRequest().withAutoScalingGroupName(autoScalingGroupName).withDesiredCapacity(desiredCapacity));
         do {
@@ -412,7 +401,7 @@ class ECSService {
         return getAutoScalingInServiceCount(autoScalingClient, autoScalingGroupName);
     }
 
-    private int getAutoScalingInServiceCount(final AmazonAutoScalingClient autoScalingClient,
+    private int getAutoScalingInServiceCount(final AmazonAutoScaling autoScalingClient,
         final String autoScalingGroupName) {
         int inService = 0;
         final List<AutoScalingGroup> autoScalingGroups = autoScalingClient.describeAutoScalingGroups(new DescribeAutoScalingGroupsRequest().withAutoScalingGroupNames(autoScalingGroupName)).getAutoScalingGroups();
@@ -428,7 +417,7 @@ class ECSService {
 
     private int waitForEcsClusterScaleOut(final Date timeout, final String ecsClusterArn, final int expectedRunningCount)
         throws InterruptedException {
-        final AmazonECSClient ecsClient = getAmazonECSClient();
+        final AmazonECS ecsClient = getAmazonECSClient();
         do {
             final int activeEcsInstances = getEcsRunningCount(ecsClient, ecsClusterArn);
             final int drainingEcsInstances = getEcsDrainingCount(ecsClient, ecsClusterArn);
@@ -443,14 +432,14 @@ class ECSService {
         return getEcsRunningCount(ecsClient, ecsClusterArn);
     }
 
-    private int getEcsRunningCount(final AmazonECSClient ecsClient, final String ecsClusterArn) {
+    private int getEcsRunningCount(final AmazonECS ecsClient, final String ecsClusterArn) {
         return ecsClient.listContainerInstances(new ListContainerInstancesRequest()
             .withCluster(ecsClusterArn)
             .withStatus(ContainerInstanceStatus.ACTIVE)
         ).getContainerInstanceArns().size();
     }
 
-    private int getEcsDrainingCount(final AmazonECSClient ecsClient, final String ecsClusterArn) {
+    private int getEcsDrainingCount(final AmazonECS ecsClient, final String ecsClusterArn) {
         return ecsClient.listContainerInstances(new ListContainerInstancesRequest()
                 .withCluster(ecsClusterArn)
                 .withStatus(ContainerInstanceStatus.DRAINING)

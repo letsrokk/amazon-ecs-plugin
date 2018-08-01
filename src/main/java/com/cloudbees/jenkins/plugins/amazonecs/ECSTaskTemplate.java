@@ -27,7 +27,7 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.ecs.model.*;
-import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
 import com.amazonaws.services.identitymanagement.model.ListRolesResult;
 import hudson.Extension;
 import hudson.RelativePath;
@@ -535,7 +535,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
 
             final ECSService ecsService = AWSClientsManager.getEcsService(credentialsId, regionName);
             try{
-                AmazonIdentityManagementClient client = ecsService.getAmazonIAMClient();
+                AmazonIdentityManagement client = ecsService.getAmazonIAMClient();
                 ListRolesResult availableRoles = client.listRoles();
                 availableRoles.getRoles().forEach(role -> iamRoles.add(role.getRoleName(), role.getArn()));
                 return iamRoles;

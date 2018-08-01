@@ -6,17 +6,17 @@ import java.util.logging.Logger;
 
 import javax.annotation.Nonnull;
 
-import com.amazonaws.services.autoscaling.AmazonAutoScalingClient;
+import com.amazonaws.services.autoscaling.AmazonAutoScaling;
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest;
 import com.amazonaws.services.autoscaling.model.SetInstanceProtectionRequest;
 import com.amazonaws.services.autoscaling.model.TerminateInstanceInAutoScalingGroupRequest;
 import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest;
-import com.amazonaws.services.ec2.AmazonEC2Client;
+import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ecs.AmazonECSClient;
+import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.ContainerInstanceStatus;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
@@ -33,9 +33,9 @@ public class ECSClusterScaleIn implements Runnable {
     private final String ecsClusterArn;
     private final String autoScalingGroupName;
 
-    private final AmazonAutoScalingClient autoScalingClient;
-    private final AmazonECSClient ecsClient;
-    private final AmazonEC2Client ec2Client;
+    private final AmazonAutoScaling autoScalingClient;
+    private final AmazonECS ecsClient;
+    private final AmazonEC2 ec2Client;
     
     ECSClusterScaleIn(
             @Nonnull final ECSService ecsService,

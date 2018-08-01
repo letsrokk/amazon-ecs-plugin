@@ -35,13 +35,13 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.amazonaws.services.autoscaling.AmazonAutoScaling;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.services.autoscaling.AmazonAutoScalingClient;
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest;
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult;
@@ -279,7 +279,7 @@ public class ECSEC2Cloud extends ECSCloud {
         public ListBoxModel doFillAutoScalingGroupItems(@QueryParameter String credentialsId, @QueryParameter String regionName) {
             final ECSService ecsService = AWSClientsManager.getEcsService(credentialsId, regionName);
             try {
-                final AmazonAutoScalingClient client = ecsService.getAmazonAutoScalingClient();
+                final AmazonAutoScaling client = ecsService.getAmazonAutoScalingClient();
                 final List<AutoScalingGroup> allAutoScalingGroups = new ArrayList<AutoScalingGroup>();
                 String lastToken = null;
                 do {
